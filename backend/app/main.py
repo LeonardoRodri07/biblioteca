@@ -26,4 +26,3 @@ app.include_router(livros.router)
 def verificar_saude():
     """Verifica se a API está funcionando (health check)."""
     return {"status": "ok", "mensagem": "API da biblioteca está no ar!"}
-    
