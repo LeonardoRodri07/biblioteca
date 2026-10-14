@@ -1,22 +1,29 @@
-# Importa a classe principal do FastAPI.
 from fastapi import FastAPI
 
-# Cria a aplicação. Este objeto "app" é a nossa API inteira.
-# Os parâmetros abaixo configuram a documentação automática (Swagger).
+from . import models  # noqa: F401  (importar garante que o model seja registrado)
+from .database import Base, engine
+from .routers import livros
+
+# Cria as tabelas no banco se ainda não existirem.
+# (Em projetos maiores isso é feito com migrações, como o Alembic.
+#  Para aprender, create_all é suficiente.)
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
-    title="API Biblioteca de Livros",            # título que aparece no Swagger
+    title="API Biblioteca de Livros",
     description="API para gerenciar uma biblioteca de livros (projeto de aprendizado).",
-    version="0.1.0",                             # versão da API
-    docs_url="/api/docs",                        # Swagger fica em /api/docs
-    redoc_url="/api/redoc",                      # documentação alternativa (ReDoc)
-    openapi_url="/api/openapi.json",             # arquivo JSON que descreve a API
+    version="0.2.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
+# Conecta o router de livros à aplicação.
+app.include_router(livros.router)
 
-# "@app.get" é um decorador: diz que a função logo abaixo
-# responde a requisições do tipo GET no caminho indicado.
+
 @app.get("/api/saude", tags=["Sistema"])
 def verificar_saude():
     """Verifica se a API está funcionando (health check)."""
-    # O FastAPI converte este dicionário Python em JSON automaticamente.
     return {"status": "ok", "mensagem": "API da biblioteca está no ar!"}
+    
