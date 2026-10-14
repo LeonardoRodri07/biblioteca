@@ -1,0 +1,28 @@
+# ===== Python =====
+# Ambiente virtual: cada pessoa cria o seu, não se versiona
+.venv/
+venv/
+# Cache gerado pelo Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ===== Node / React =====
+# Bibliotecas baixadas: pesadas e recriáveis com "npm install"
+node_modules/
+# Arquivos gerados pelo build do frontend
+dist/
+
+# ===== Banco de dados local =====
+# O arquivo do SQLite é dado, não código
+*.db
+*.sqlite3
+
+# ===== Segredos =====
+# NUNCA suba senhas ou chaves para o GitHub
+.env
+.env.*
+
+# ===== Editor e sistema =====
+.vscode/
+.DS_Store

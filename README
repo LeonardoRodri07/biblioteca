@@ -1,0 +1,40 @@
+# 📚 Biblioteca de Livros
+
+API de biblioteca de livros com backend em FastAPI e frontend em React.
+Projeto de aprendizado seguindo práticas de equipes reais.
+
+## Tecnologias
+
+- **Backend:** Python 3 + FastAPI
+- **Banco de dados:** SQLite (migração futura para PostgreSQL)
+- **Frontend:** React + Vite
+- **Versionamento:** Git + GitHub
+
+## Estrutura
+
+- `backend/`  → API REST
+- `frontend/` → interface web
+- `docs/`     → documentação adicional
+
+## Como rodar
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+- API: http://localhost:8000/api/saude
+- Swagger: http://localhost:8000/api/docs
+
+### Frontend
+
+> Será preenchido nas próximas etapas.
+
+## Status
+
+🚧 Em construção: Etapa 2 (backend com primeira rota).
