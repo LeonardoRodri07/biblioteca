@@ -1,34 +1,22 @@
+# Importa a classe principal do FastAPI.
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from . import models
-from .database import engine
-from .routers import livros
-
-# Cria as tabelas no banco se ainda não existirem
-models.Base.metadata.create_all(bind=engine)
-
+# Cria a aplicação. Este objeto "app" é a nossa API inteira.
+# Os parâmetros abaixo configuram a documentação automática (Swagger).
 app = FastAPI(
-    title="API Biblioteca",
-    version="1.0.0",
-    docs_url="/api/docs",       # Swagger UI em /api/docs
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    title="API Biblioteca de Livros",            # título que aparece no Swagger
+    description="API para gerenciar uma biblioteca de livros (projeto de aprendizado).",
+    version="0.1.0",                             # versão da API
+    docs_url="/api/docs",                        # Swagger fica em /api/docs
+    redoc_url="/api/redoc",                      # documentação alternativa (ReDoc)
+    openapi_url="/api/openapi.json",             # arquivo JSON que descreve a API
 )
 
-# CORS: permite que o frontend (porta 5173) chame o backend (porta 8000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# Registra o router de livros
-app.include_router(livros.router, prefix="/api")
-
-
-@app.get("/api/health", tags=["Sistema"])
-def health():
-    """Rota simples para saber se a API está viva."""
-    return {"status": "ok"}
+# "@app.get" é um decorador: diz que a função logo abaixo
+# responde a requisições do tipo GET no caminho indicado.
+@app.get("/api/saude", tags=["Sistema"])
+def verificar_saude():
+    """Verifica se a API está funcionando (health check)."""
+    # O FastAPI converte este dicionário Python em JSON automaticamente.
+    return {"status": "ok", "mensagem": "API da biblioteca está no ar!"}
