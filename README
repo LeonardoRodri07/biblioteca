@@ -37,4 +37,4 @@ uvicorn app.main:app --reload --port 8000
 
 ## Status
 
-🚧 Em construção: Etapa 2 (backend com primeira rota).
+🚧 Em construção: Etapa 3 (CRUD de livros com SQLite).

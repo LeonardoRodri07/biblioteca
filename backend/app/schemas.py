@@ -1,30 +1,37 @@
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
+# Schemas Pydantic: validam os dados que entram e saem da API.
+from pydantic import BaseModel, ConfigDict, Field
 
 
+# Campos comuns a todos os schemas de livro.
 class LivroBase(BaseModel):
-    """Campos comuns a criação e leitura."""
-    titulo: str
-    autor: str
-    ano: Optional[int] = None
+    # Field(...) adiciona regras de validação.
+    titulo: str = Field(min_length=1, max_length=200, examples=["Dom Casmurro"])
+    autor: str = Field(min_length=1, max_length=120, examples=["Machado de Assis"])
+    ano_publicacao: int | None = Field(default=None, ge=1000, le=2100, examples=[1899])
+    isbn: str | None = Field(default=None, max_length=20, examples=["9788535902778"])
+
+
+# Dados recebidos ao CRIAR um livro (POST).
+class LivroCriar(LivroBase):
+    # "disponivel" é opcional na criação; se não vier, assume True.
     disponivel: bool = True
 
 
-class LivroCreate(LivroBase):
-    """O que o cliente envia no POST (não inclui id, o banco gera)."""
-    pass
+# Dados recebidos ao ATUALIZAR um livro (PATCH).
+# Todos opcionais: o cliente envia só o que quer mudar.
+class LivroAtualizar(BaseModel):
+    titulo: str | None = Field(default=None, min_length=1, max_length=200)
+    autor: str | None = Field(default=None, min_length=1, max_length=120)
+    ano_publicacao: int | None = Field(default=None, ge=1000, le=2100)
+    isbn: str | None = Field(default=None, max_length=20)
+    disponivel: bool | None = None
 
 
-class LivroUpdate(BaseModel):
-    """No PUT/PATCH tudo é opcional: atualiza só o que for enviado."""
-    titulo: Optional[str] = None
-    autor: Optional[str] = None
-    ano: Optional[int] = None
-    disponivel: Optional[bool] = None
-
-
-class LivroOut(LivroBase):
-    """O que a API devolve (inclui o id)."""
+# Dados devolvidos pela API (inclui o id gerado pelo banco).
+class LivroResposta(LivroBase):
     id: int
-    # permite converter direto de um objeto SQLAlchemy para JSON
+    disponivel: bool
+
+    # from_attributes=True permite converter o objeto do banco (model)
+    # direto neste schema.
     model_config = ConfigDict(from_attributes=True)
