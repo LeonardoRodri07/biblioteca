@@ -1,18 +1,34 @@
 import { useEffect, useState } from "react";
-import { apagarLivro, atualizarLivro, criarLivro, listarLivros } from "./api";
+import {
+  apagarCapa,
+  apagarLivro,
+  atualizarLivro,
+  criarLivro,
+  enviarCapa,
+  listarLivros,
+} from "./api";
+import CartaoLivro from "./components/CartaoLivro";
+import ModalLivro from "./components/ModalLivro";
 import "./App.css";
 
-// Estado inicial do formulário (campos vazios).
-const FORMULARIO_VAZIO = { titulo: "", autor: "", ano_publicacao: "", isbn: "" };
+// Abas do menu lateral.
+const ABAS = [
+  { id: "inicio", rotulo: "Início", icone: "🏠" },
+  { id: "pesquisar", rotulo: "Pesquisar", icone: "🔍" },
+  { id: "catalogo", rotulo: "Catálogo", icone: "📖" },
+];
 
 export default function App() {
-  // useState guarda dados que, ao mudarem, redesenham a tela.
   const [livros, setLivros] = useState([]);
-  const [form, setForm] = useState(FORMULARIO_VAZIO);
+  const [aba, setAba] = useState("inicio");
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState("todos"); // todos | disponiveis | emprestados
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
 
-  // Busca a lista na API e guarda no estado.
+  // Controla a janela: null = fechada; { livro: null } = novo; { livro } = edição.
+  const [modal, setModal] = useState(null);
+
   async function carregar() {
     try {
       setLivros(await listarLivros());
@@ -24,34 +40,25 @@ export default function App() {
     }
   }
 
-  // useEffect com [] roda uma vez, quando a tela aparece pela primeira vez.
   useEffect(() => {
     carregar();
   }, []);
 
-  // Atualiza um campo do formulário conforme a pessoa digita.
-  function aoDigitar(evento) {
-    setForm({ ...form, [evento.target.name]: evento.target.value });
+  // Chamada pelo modal ao clicar em "Salvar".
+  // Se lançar erro, o próprio modal o mostra e continua aberto.
+  async function salvarLivro({ dados, arquivo, tirarCapa }) {
+    // 1) cria ou atualiza os dados do livro
+    const salvo = modal.livro
+      ? await atualizarLivro(modal.livro.id, dados)
+      : await criarLivro(dados);
+
+    // 2) cuida da capa: nova foto, ou remoção da atual
+    if (arquivo) await enviarCapa(salvo.id, arquivo);
+    else if (tirarCapa && salvo.capa) await apagarCapa(salvo.id);
+
+    await carregar();
   }
 
-  // Envia o formulário para a API.
-  async function aoEnviar(evento) {
-    evento.preventDefault(); // impede o navegador de recarregar a página
-    try {
-      // Monta o objeto; campos opcionais vazios viram "não enviar".
-      const novo = { titulo: form.titulo, autor: form.autor };
-      if (form.ano_publicacao) novo.ano_publicacao = Number(form.ano_publicacao);
-      if (form.isbn) novo.isbn = form.isbn;
-
-      await criarLivro(novo);
-      setForm(FORMULARIO_VAZIO);
-      await carregar(); // recarrega a lista
-    } catch (e) {
-      setErro(e.message); // mostra o erro vindo da API (ex.: ISBN duplicado)
-    }
-  }
-
-  // Alterna entre disponível e emprestado.
   async function alternarDisponibilidade(livro) {
     try {
       await atualizarLivro(livro.id, { disponivel: !livro.disponivel });
@@ -61,7 +68,6 @@ export default function App() {
     }
   }
 
-  // Apaga, com confirmação.
   async function remover(livro) {
     if (!window.confirm(`Apagar "${livro.titulo}"?`)) return;
     try {
@@ -72,56 +78,132 @@ export default function App() {
     }
   }
 
+  // Filtro da busca: procura no título, autor e ISBN (sem diferenciar maiúsculas).
+  const termo = busca.trim().toLowerCase();
+  const resultadoBusca = livros.filter((l) =>
+    [l.titulo, l.autor, l.isbn ?? ""].some((campo) => campo.toLowerCase().includes(termo))
+  );
+
+  // Filtro do catálogo por disponibilidade.
+  const doCatalogo = livros.filter((l) =>
+    filtro === "todos" ? true : filtro === "disponiveis" ? l.disponivel : !l.disponivel
+  );
+
+  // Prateleiras da aba Início.
+  const recentes = [...livros].sort((a, b) => b.id - a.id).slice(0, 6);
+  const disponiveis = livros.filter((l) => l.disponivel).slice(0, 6);
+
+  // Desenha uma grade de cartões (ou uma mensagem se estiver vazia).
+  function Grade({ lista, vazio }) {
+    if (lista.length === 0) return <p className="vazio">{vazio}</p>;
+    return (
+      <div className="grade">
+        {lista.map((livro) => (
+          <CartaoLivro
+            key={livro.id}
+            livro={livro}
+            aoEditar={(l) => setModal({ livro: l })}
+            aoAlternar={alternarDisponibilidade}
+            aoApagar={remover}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <main className="container">
-      <h1>📚 Biblioteca de Livros</h1>
-
-      {/* Mensagem de erro, só aparece se houver erro. */}
-      {erro && <p className="erro">{erro}</p>}
-
-      <form onSubmit={aoEnviar} className="formulario">
-        <input name="titulo" placeholder="Título *" value={form.titulo}
-               onChange={aoDigitar} required />
-        <input name="autor" placeholder="Autor *" value={form.autor}
-               onChange={aoDigitar} required />
-        <input name="ano_publicacao" type="number" placeholder="Ano"
-               value={form.ano_publicacao} onChange={aoDigitar} />
-        <input name="isbn" placeholder="ISBN" value={form.isbn}
-               onChange={aoDigitar} />
-        <button type="submit">Adicionar</button>
-      </form>
-
-      {carregando ? (
-        <p>Carregando...</p>
-      ) : livros.length === 0 ? (
-        <p>Nenhum livro cadastrado ainda.</p>
-      ) : (
-        <ul className="lista">
-          {/* map: transforma cada livro da lista em um item na tela. */}
-          {livros.map((livro) => (
-            <li key={livro.id} className="item">
-              <div>
-                <strong>{livro.titulo}</strong>
-                <span>
-                  {livro.autor}
-                  {livro.ano_publicacao ? ` · ${livro.ano_publicacao}` : ""}
-                </span>
-              </div>
-              <div className="acoes">
-                <button
-                  className={livro.disponivel ? "ok" : "emprestado"}
-                  onClick={() => alternarDisponibilidade(livro)}
-                >
-                  {livro.disponivel ? "Disponível" : "Emprestado"}
-                </button>
-                <button className="apagar" onClick={() => remover(livro)}>
-                  Apagar
-                </button>
-              </div>
-            </li>
+    <div className="app">
+      {/* ===== Menu lateral ===== */}
+      <aside className="lateral">
+        <div className="logo">Biblioteca<span>de Livros</span></div>
+        <nav>
+          {ABAS.map((item) => (
+            <button
+              key={item.id}
+              className={`aba ${aba === item.id ? "ativa" : ""}`}
+              onClick={() => setAba(item.id)}
+            >
+              <span>{item.icone}</span> {item.rotulo}
+            </button>
           ))}
-        </ul>
+        </nav>
+      </aside>
+
+      {/* ===== Conteúdo ===== */}
+      <main className="conteudo">
+        <div className="topo">
+          <h1>{ABAS.find((a) => a.id === aba).rotulo}</h1>
+          <button className="botao-primario" onClick={() => setModal({ livro: null })}>
+            + Novo livro
+          </button>
+        </div>
+
+        {erro && <p className="erro">{erro}</p>}
+
+        {carregando ? (
+          <p className="vazio">Carregando...</p>
+        ) : (
+          <>
+            {aba === "inicio" && (
+              <>
+                <h2 className="secao">Adicionados recentemente</h2>
+                <Grade lista={recentes} vazio="Nenhum livro cadastrado ainda. Clique em “+ Novo livro”." />
+                {disponiveis.length > 0 && (
+                  <>
+                    <h2 className="secao">Disponíveis agora</h2>
+                    <Grade lista={disponiveis} vazio="" />
+                  </>
+                )}
+              </>
+            )}
+
+            {aba === "pesquisar" && (
+              <>
+                <input
+                  className="busca"
+                  placeholder="Buscar por título, autor ou ISBN..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  autoFocus
+                />
+                <Grade lista={resultadoBusca} vazio="Nenhum livro encontrado." />
+              </>
+            )}
+
+            {aba === "catalogo" && (
+              <>
+                <div className="filtros">
+                  {[
+                    ["todos", "Todos"],
+                    ["disponiveis", "Disponíveis"],
+                    ["emprestados", "Emprestados"],
+                  ].map(([id, rotulo]) => (
+                    <button
+                      key={id}
+                      className={`filtro ${filtro === id ? "ativo" : ""}`}
+                      onClick={() => setFiltro(id)}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+                <Grade lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
+              </>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* A janela só existe enquanto "modal" não for null.
+          "key" força recriar o formulário ao trocar de livro. */}
+      {modal && (
+        <ModalLivro
+          key={modal.livro?.id ?? "novo"}
+          livro={modal.livro}
+          aoFechar={() => setModal(null)}
+          aoSalvar={salvarLivro}
+        />
       )}
-    </main>
+    </div>
   );
 }
