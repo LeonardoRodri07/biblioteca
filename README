@@ -131,3 +131,5 @@ A coleção completa pode ser importada em ferramentas como o Postman pela URL
 - [x] Etapa 3: CRUD de livros com SQLite
 - [x] Etapa 4: chamadas manuais (Swagger e curl)
 - [x] Etapa 5: frontend React consumindo a API
+- [x] Etapa 6: branches e Pull Requests no GitHub
+- [x] Etapa 7: capas dos livros (upload de imagens) e novo visual do frontend
