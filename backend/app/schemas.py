@@ -31,7 +31,7 @@ class LivroAtualizar(BaseModel):
 class LivroResposta(LivroBase):
     id: int
     disponivel: bool
+    # NOVO: nome do arquivo da capa (o frontend monta a URL completa).
+    capa: str | None = None
 
-    # from_attributes=True permite converter o objeto do banco (model)
-    # direto neste schema.
     model_config = ConfigDict(from_attributes=True)

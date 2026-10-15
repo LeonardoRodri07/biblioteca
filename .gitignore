@@ -26,3 +26,6 @@ dist/
 # ===== Editor e sistema =====
 .vscode/
 .DS_Store
+
+# ===== Uploads (imagens enviadas pelos usuários) =====
+backend/uploads/
