@@ -31,6 +31,7 @@ app.include_router(livros.router)
 app.mount("/api/capas", StaticFiles(directory=UPLOAD_DIR), name="capas")
 
 
+# decorator para criar um endpoint(endereço da API que responde a req GET) GET na rota "/api/saude" com a tag "Sistema"   
 @app.get("/api/saude", tags=["Sistema"])
 def verificar_saude():
     """Verifica se a API está funcionando (health check)."""

@@ -72,6 +72,8 @@ export default function App() {
     if (!window.confirm(`Apagar "${livro.titulo}"?`)) return;
     try {
       await apagarLivro(livro.id);
+      // Se apagou o livro que estava sendo editado, sai do modo edição.
+      if (editandoId === livro.id) cancelarEdicao();
       await carregar();
     } catch (e) {
       setErro(e.message);
