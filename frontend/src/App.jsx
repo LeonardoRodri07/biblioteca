@@ -6,13 +6,15 @@ import "./App.css";
 const FORMULARIO_VAZIO = { titulo: "", autor: "", ano_publicacao: "", isbn: "" };
 
 export default function App() {
-  // useState guarda dados que, ao mudarem, redesenham a tela.
   const [livros, setLivros] = useState([]);
   const [form, setForm] = useState(FORMULARIO_VAZIO);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
 
-  // Busca a lista na API e guarda no estado.
+  // NOVO: guarda o id do livro que está sendo editado.
+  // null = estamos criando um livro novo.
+  const [editandoId, setEditandoId] = useState(null);
+
   async function carregar() {
     try {
       setLivros(await listarLivros());
@@ -24,34 +26,64 @@ export default function App() {
     }
   }
 
-  // useEffect com [] roda uma vez, quando a tela aparece pela primeira vez.
   useEffect(() => {
     carregar();
   }, []);
 
-  // Atualiza um campo do formulário conforme a pessoa digita.
   function aoDigitar(evento) {
     setForm({ ...form, [evento.target.name]: evento.target.value });
   }
 
-  // Envia o formulário para a API.
-  async function aoEnviar(evento) {
-    evento.preventDefault(); // impede o navegador de recarregar a página
-    try {
-      // Monta o objeto; campos opcionais vazios viram "não enviar".
-      const novo = { titulo: form.titulo, autor: form.autor };
-      if (form.ano_publicacao) novo.ano_publicacao = Number(form.ano_publicacao);
-      if (form.isbn) novo.isbn = form.isbn;
+  // NOVO: clicou em "Editar". Copia os dados do livro para o formulário.
+  function iniciarEdicao(livro) {
+    setEditandoId(livro.id);
+    setForm({
+      titulo: livro.titulo,
+      autor: livro.autor,
+      // Campos opcionais podem vir como null; o input precisa de texto.
+      ano_publicacao: livro.ano_publicacao ?? "",
+      isbn: livro.isbn ?? "",
+    });
+    setErro("");
+    window.scrollTo({ top: 0, behavior: "smooth" }); // sobe até o formulário
+  }
 
-      await criarLivro(novo);
-      setForm(FORMULARIO_VAZIO);
-      await carregar(); // recarrega a lista
+  // NOVO: desiste da edição e limpa o formulário.
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setForm(FORMULARIO_VAZIO);
+    setErro("");
+  }
+
+  // Envia o formulário: cria OU atualiza, dependendo de editandoId.
+  async function aoEnviar(evento) {
+    evento.preventDefault();
+    try {
+      if (editandoId === null) {
+        // ----- CRIAR (igual à Etapa 5) -----
+        const novo = { titulo: form.titulo, autor: form.autor };
+        if (form.ano_publicacao) novo.ano_publicacao = Number(form.ano_publicacao);
+        if (form.isbn) novo.isbn = form.isbn;
+        await criarLivro(novo);
+      } else {
+        // ----- EDITAR -----
+        // No PATCH enviamos todos os campos do formulário.
+        // Campo opcional apagado vira null, para limpar o valor no banco.
+        const mudancas = {
+          titulo: form.titulo,
+          autor: form.autor,
+          ano_publicacao: form.ano_publicacao ? Number(form.ano_publicacao) : null,
+          isbn: form.isbn ? form.isbn : null,
+        };
+        await atualizarLivro(editandoId, mudancas);
+      }
+      cancelarEdicao(); // limpa o formulário e volta ao modo "criar"
+      await carregar();
     } catch (e) {
-      setErro(e.message); // mostra o erro vindo da API (ex.: ISBN duplicado)
+      setErro(e.message);
     }
   }
 
-  // Alterna entre disponível e emprestado.
   async function alternarDisponibilidade(livro) {
     try {
       await atualizarLivro(livro.id, { disponivel: !livro.disponivel });
@@ -61,11 +93,12 @@ export default function App() {
     }
   }
 
-  // Apaga, com confirmação.
   async function remover(livro) {
     if (!window.confirm(`Apagar "${livro.titulo}"?`)) return;
     try {
       await apagarLivro(livro.id);
+      // Se apagou o livro que estava sendo editado, sai do modo edição.
+      if (editandoId === livro.id) cancelarEdicao();
       await carregar();
     } catch (e) {
       setErro(e.message);
@@ -76,8 +109,12 @@ export default function App() {
     <main className="container">
       <h1>📚 Biblioteca de Livros</h1>
 
-      {/* Mensagem de erro, só aparece se houver erro. */}
       {erro && <p className="erro">{erro}</p>}
+
+      {/* Aviso visual de que estamos no modo edição. */}
+      {editandoId !== null && (
+        <p className="aviso-edicao">✏️ Editando o livro #{editandoId}</p>
+      )}
 
       <form onSubmit={aoEnviar} className="formulario">
         <input name="titulo" placeholder="Título *" value={form.titulo}
@@ -88,7 +125,18 @@ export default function App() {
                value={form.ano_publicacao} onChange={aoDigitar} />
         <input name="isbn" placeholder="ISBN" value={form.isbn}
                onChange={aoDigitar} />
-        <button type="submit">Adicionar</button>
+
+        {/* O texto do botão muda conforme o modo. */}
+        <button type="submit">
+          {editandoId === null ? "Adicionar" : "Salvar alterações"}
+        </button>
+
+        {/* O botão Cancelar só existe no modo edição. */}
+        {editandoId !== null && (
+          <button type="button" className="cancelar" onClick={cancelarEdicao}>
+            Cancelar
+          </button>
+        )}
       </form>
 
       {carregando ? (
@@ -97,9 +145,12 @@ export default function App() {
         <p>Nenhum livro cadastrado ainda.</p>
       ) : (
         <ul className="lista">
-          {/* map: transforma cada livro da lista em um item na tela. */}
           {livros.map((livro) => (
-            <li key={livro.id} className="item">
+            <li
+              key={livro.id}
+              // Destaca o item que está sendo editado.
+              className={`item ${livro.id === editandoId ? "em-edicao" : ""}`}
+            >
               <div>
                 <strong>{livro.titulo}</strong>
                 <span>
@@ -114,6 +165,10 @@ export default function App() {
                 >
                   {livro.disponivel ? "Disponível" : "Emprestado"}
                 </button>
+                {/* NOVO: botão Editar */}
+                <button className="editar" onClick={() => iniciarEdicao(livro)}>
+                  Editar
+                </button>
                 <button className="apagar" onClick={() => remover(livro)}>
                   Apagar
                 </button>
@@ -122,6 +177,10 @@ export default function App() {
           ))}
         </ul>
       )}
+
+      <footer className="rodape">
+        Biblioteca de Livros · projeto de aprendizado
+      </footer>
     </main>
   );
 }

@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(livros.router)
 
 
+# decorator para criar um endpoint(endereço da API que responde a req GET) GET na rota "/api/saude" com a tag "Sistema"   
 @app.get("/api/saude", tags=["Sistema"])
 def verificar_saude():
     """Verifica se a API está funcionando (health check)."""
