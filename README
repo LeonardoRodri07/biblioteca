@@ -1,22 +1,49 @@
 # 📚 Biblioteca de Livros
 
 API de biblioteca de livros com backend em FastAPI e frontend em React.
-Projeto de aprendizado seguindo práticas de equipes reais.
+Projeto de aprendizado seguindo práticas de equipes reais: documentação,
+versionamento com Git e fluxo de Pull Requests.
 
 ## Tecnologias
 
-- **Backend:** Python 3 + FastAPI
+- **Backend:** Python 3 + FastAPI + SQLAlchemy
 - **Banco de dados:** SQLite (migração futura para PostgreSQL)
 - **Frontend:** React + Vite
 - **Versionamento:** Git + GitHub
 
-## Estrutura
+## Estrutura do projeto
 
-- `backend/`  → API REST
-- `frontend/` → interface web
-- `docs/`     → documentação adicional
+```
+biblioteca/
+├── backend/
+│   ├── app/
+│   │   ├── main.py          # ponto de entrada da API e CORS
+│   │   ├── database.py      # conexão com o banco
+│   │   ├── models.py        # tabelas (SQLAlchemy)
+│   │   ├── schemas.py       # validação de dados (Pydantic)
+│   │   └── routers/
+│   │       └── livros.py    # rotas /api/livros
+│   └── requirements.txt     # dependências Python
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx          # tela principal
+│   │   ├── App.css          # estilos
+│   │   └── api.js           # chamadas HTTP à API
+│   └── package.json
+├── docs/                    # documentação adicional
+├── .gitignore
+└── README.md
+```
+
+## Pré-requisitos
+
+- Python 3.10 ou superior
+- Node.js 18 ou superior (recomendado 20+)
+- Git
 
 ## Como rodar
+
+São necessários **dois terminais**: um para o backend e outro para o frontend.
 
 ### Backend
 
@@ -29,12 +56,78 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 - API: http://localhost:8000/api/saude
-- Swagger: http://localhost:8000/api/docs
+- Swagger (documentação interativa): http://localhost:8000/api/docs
+- ReDoc: http://localhost:8000/api/redoc
+- OpenAPI (JSON): http://localhost:8000/api/openapi.json
+
+O arquivo do banco (`biblioteca.db`) é criado automaticamente na primeira execução.
 
 ### Frontend
 
-> Será preenchido nas próximas etapas.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- Interface: http://localhost:5173 (a API precisa estar rodando na porta 8000)
+
+## Endpoints da API
+
+| Método | Rota | Descrição | Sucesso |
+|---|---|---|---|
+| GET | `/api/saude` | Verifica se a API está no ar | 200 |
+| POST | `/api/livros` | Cadastra um livro | 201 |
+| GET | `/api/livros` | Lista livros (filtro `?disponivel=true`) | 200 |
+| GET | `/api/livros/{id}` | Busca um livro pelo id | 200 |
+| PATCH | `/api/livros/{id}` | Atualiza campos de um livro | 200 |
+| DELETE | `/api/livros/{id}` | Remove um livro | 204 |
+
+### Códigos de erro
+
+| Código | Significado |
+|---|---|
+| 404 | Livro não encontrado |
+| 409 | ISBN já cadastrado |
+| 422 | Dados inválidos (validação) |
+
+## Exemplos de uso (curl)
+
+```bash
+# Criar
+curl -X POST http://localhost:8000/api/livros \
+  -H "Content-Type: application/json" \
+  -d '{"titulo": "Dom Casmurro", "autor": "Machado de Assis", "ano_publicacao": 1899}'
+
+# Listar
+curl http://localhost:8000/api/livros
+
+# Marcar como emprestado
+curl -X PATCH http://localhost:8000/api/livros/1 \
+  -H "Content-Type: application/json" \
+  -d '{"disponivel": false}'
+
+# Apagar
+curl -X DELETE http://localhost:8000/api/livros/1
+```
+
+A coleção completa pode ser importada em ferramentas como o Postman pela URL
+`http://localhost:8000/api/openapi.json`.
+
+## Fluxo de trabalho (Git)
+
+1. Nunca trabalhar direto na `main`: criar uma branch (`feat/...`, `fix/...`, `docs/...`).
+2. Commits no padrão [Conventional Commits](https://www.conventionalcommits.org/pt-br/):
+   `feat:`, `fix:`, `docs:`, `chore:`.
+3. Enviar a branch ao GitHub e abrir um Pull Request para a `main`.
+4. Revisar o diff, mesclar o PR e apagar a branch.
 
 ## Status
 
-🚧 Em construção: Etapa 3 (CRUD de livros com SQLite).
+🚧 Em construção:
+
+- [x] Etapa 1: ambiente e estrutura inicial
+- [x] Etapa 2: backend com FastAPI e Swagger
+- [x] Etapa 3: CRUD de livros com SQLite
+- [x] Etapa 4: chamadas manuais (Swagger e curl)
+- [x] Etapa 5: frontend React consumindo a API
