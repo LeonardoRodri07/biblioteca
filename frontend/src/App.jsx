@@ -1,19 +1,33 @@
 import { useEffect, useState } from "react";
-import { apagarLivro, atualizarLivro, criarLivro, listarLivros } from "./api";
+import {
+  apagarCapa,
+  apagarLivro,
+  atualizarLivro,
+  criarLivro,
+  enviarCapa,
+  listarLivros,
+} from "./api";
+import CartaoLivro from "./components/CartaoLivro";
+import ModalLivro from "./components/ModalLivro";
 import "./App.css";
 
-// Estado inicial do formulário (campos vazios).
-const FORMULARIO_VAZIO = { titulo: "", autor: "", ano_publicacao: "", isbn: "" };
+// Abas do menu lateral.
+const ABAS = [
+  { id: "inicio", rotulo: "Início", icone: "🏠" },
+  { id: "pesquisar", rotulo: "Pesquisar", icone: "🔍" },
+  { id: "catalogo", rotulo: "Catálogo", icone: "📖" },
+];
 
 export default function App() {
   const [livros, setLivros] = useState([]);
-  const [form, setForm] = useState(FORMULARIO_VAZIO);
+  const [aba, setAba] = useState("inicio");
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState("todos"); // todos | disponiveis | emprestados
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
 
-  // NOVO: guarda o id do livro que está sendo editado.
-  // null = estamos criando um livro novo.
-  const [editandoId, setEditandoId] = useState(null);
+  // Controla a janela: null = fechada; { livro: null } = novo; { livro } = edição.
+  const [modal, setModal] = useState(null);
 
   async function carregar() {
     try {
@@ -30,58 +44,19 @@ export default function App() {
     carregar();
   }, []);
 
-  function aoDigitar(evento) {
-    setForm({ ...form, [evento.target.name]: evento.target.value });
-  }
+  // Chamada pelo modal ao clicar em "Salvar".
+  // Se lançar erro, o próprio modal o mostra e continua aberto.
+  async function salvarLivro({ dados, arquivo, tirarCapa }) {
+    // 1) cria ou atualiza os dados do livro
+    const salvo = modal.livro
+      ? await atualizarLivro(modal.livro.id, dados)
+      : await criarLivro(dados);
 
-  // NOVO: clicou em "Editar". Copia os dados do livro para o formulário.
-  function iniciarEdicao(livro) {
-    setEditandoId(livro.id);
-    setForm({
-      titulo: livro.titulo,
-      autor: livro.autor,
-      // Campos opcionais podem vir como null; o input precisa de texto.
-      ano_publicacao: livro.ano_publicacao ?? "",
-      isbn: livro.isbn ?? "",
-    });
-    setErro("");
-    window.scrollTo({ top: 0, behavior: "smooth" }); // sobe até o formulário
-  }
+    // 2) cuida da capa: nova foto, ou remoção da atual
+    if (arquivo) await enviarCapa(salvo.id, arquivo);
+    else if (tirarCapa && salvo.capa) await apagarCapa(salvo.id);
 
-  // NOVO: desiste da edição e limpa o formulário.
-  function cancelarEdicao() {
-    setEditandoId(null);
-    setForm(FORMULARIO_VAZIO);
-    setErro("");
-  }
-
-  // Envia o formulário: cria OU atualiza, dependendo de editandoId.
-  async function aoEnviar(evento) {
-    evento.preventDefault();
-    try {
-      if (editandoId === null) {
-        // ----- CRIAR (igual à Etapa 5) -----
-        const novo = { titulo: form.titulo, autor: form.autor };
-        if (form.ano_publicacao) novo.ano_publicacao = Number(form.ano_publicacao);
-        if (form.isbn) novo.isbn = form.isbn;
-        await criarLivro(novo);
-      } else {
-        // ----- EDITAR -----
-        // No PATCH enviamos todos os campos do formulário.
-        // Campo opcional apagado vira null, para limpar o valor no banco.
-        const mudancas = {
-          titulo: form.titulo,
-          autor: form.autor,
-          ano_publicacao: form.ano_publicacao ? Number(form.ano_publicacao) : null,
-          isbn: form.isbn ? form.isbn : null,
-        };
-        await atualizarLivro(editandoId, mudancas);
-      }
-      cancelarEdicao(); // limpa o formulário e volta ao modo "criar"
-      await carregar();
-    } catch (e) {
-      setErro(e.message);
-    }
+    await carregar();
   }
 
   async function alternarDisponibilidade(livro) {
@@ -105,82 +80,132 @@ export default function App() {
     }
   }
 
+  // Filtro da busca: procura no título, autor e ISBN (sem diferenciar maiúsculas).
+  const termo = busca.trim().toLowerCase();
+  const resultadoBusca = livros.filter((l) =>
+    [l.titulo, l.autor, l.isbn ?? ""].some((campo) => campo.toLowerCase().includes(termo))
+  );
+
+  // Filtro do catálogo por disponibilidade.
+  const doCatalogo = livros.filter((l) =>
+    filtro === "todos" ? true : filtro === "disponiveis" ? l.disponivel : !l.disponivel
+  );
+
+  // Prateleiras da aba Início.
+  const recentes = [...livros].sort((a, b) => b.id - a.id).slice(0, 6);
+  const disponiveis = livros.filter((l) => l.disponivel).slice(0, 6);
+
+  // Desenha uma grade de cartões (ou uma mensagem se estiver vazia).
+  function Grade({ lista, vazio }) {
+    if (lista.length === 0) return <p className="vazio">{vazio}</p>;
+    return (
+      <div className="grade">
+        {lista.map((livro) => (
+          <CartaoLivro
+            key={livro.id}
+            livro={livro}
+            aoEditar={(l) => setModal({ livro: l })}
+            aoAlternar={alternarDisponibilidade}
+            aoApagar={remover}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <main className="container">
-      <h1>📚 Biblioteca de Livros</h1>
-
-      {erro && <p className="erro">{erro}</p>}
-
-      {/* Aviso visual de que estamos no modo edição. */}
-      {editandoId !== null && (
-        <p className="aviso-edicao">✏️ Editando o livro #{editandoId}</p>
-      )}
-
-      <form onSubmit={aoEnviar} className="formulario">
-        <input name="titulo" placeholder="Título *" value={form.titulo}
-               onChange={aoDigitar} required />
-        <input name="autor" placeholder="Autor *" value={form.autor}
-               onChange={aoDigitar} required />
-        <input name="ano_publicacao" type="number" placeholder="Ano"
-               value={form.ano_publicacao} onChange={aoDigitar} />
-        <input name="isbn" placeholder="ISBN" value={form.isbn}
-               onChange={aoDigitar} />
-
-        {/* O texto do botão muda conforme o modo. */}
-        <button type="submit">
-          {editandoId === null ? "Adicionar" : "Salvar alterações"}
-        </button>
-
-        {/* O botão Cancelar só existe no modo edição. */}
-        {editandoId !== null && (
-          <button type="button" className="cancelar" onClick={cancelarEdicao}>
-            Cancelar
-          </button>
-        )}
-      </form>
-
-      {carregando ? (
-        <p>Carregando...</p>
-      ) : livros.length === 0 ? (
-        <p>Nenhum livro cadastrado ainda.</p>
-      ) : (
-        <ul className="lista">
-          {livros.map((livro) => (
-            <li
-              key={livro.id}
-              // Destaca o item que está sendo editado.
-              className={`item ${livro.id === editandoId ? "em-edicao" : ""}`}
+    <div className="app">
+      {/* ===== Menu lateral ===== */}
+      <aside className="lateral">
+        <div className="logo">Biblioteca<span>de Livros</span></div>
+        <nav>
+          {ABAS.map((item) => (
+            <button
+              key={item.id}
+              className={`aba ${aba === item.id ? "ativa" : ""}`}
+              onClick={() => setAba(item.id)}
             >
-              <div>
-                <strong>{livro.titulo}</strong>
-                <span>
-                  {livro.autor}
-                  {livro.ano_publicacao ? ` · ${livro.ano_publicacao}` : ""}
-                </span>
-              </div>
-              <div className="acoes">
-                <button
-                  className={livro.disponivel ? "ok" : "emprestado"}
-                  onClick={() => alternarDisponibilidade(livro)}
-                >
-                  {livro.disponivel ? "Disponível" : "Emprestado"}
-                </button>
-                {/* NOVO: botão Editar */}
-                <button className="editar" onClick={() => iniciarEdicao(livro)}>
-                  Editar
-                </button>
-                <button className="apagar" onClick={() => remover(livro)}>
-                  Apagar
-                </button>
-              </div>
-            </li>
+              <span>{item.icone}</span> {item.rotulo}
+            </button>
           ))}
-        </ul>
-      )}
+        </nav>
+      </aside>
 
-      <footer className="rodape">
-        Biblioteca de Livros · projeto de aprendizado
-      </footer>
-    </main>
+      {/* ===== Conteúdo ===== */}
+      <main className="conteudo">
+        <div className="topo">
+          <h1>{ABAS.find((a) => a.id === aba).rotulo}</h1>
+          <button className="botao-primario" onClick={() => setModal({ livro: null })}>
+            + Novo livro
+          </button>
+        </div>
+
+        {erro && <p className="erro">{erro}</p>}
+
+        {carregando ? (
+          <p className="vazio">Carregando...</p>
+        ) : (
+          <>
+            {aba === "inicio" && (
+              <>
+                <h2 className="secao">Adicionados recentemente</h2>
+                <Grade lista={recentes} vazio="Nenhum livro cadastrado ainda. Clique em “+ Novo livro”." />
+                {disponiveis.length > 0 && (
+                  <>
+                    <h2 className="secao">Disponíveis agora</h2>
+                    <Grade lista={disponiveis} vazio="" />
+                  </>
+                )}
+              </>
+            )}
+
+            {aba === "pesquisar" && (
+              <>
+                <input
+                  className="busca"
+                  placeholder="Buscar por título, autor ou ISBN..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  autoFocus
+                />
+                <Grade lista={resultadoBusca} vazio="Nenhum livro encontrado." />
+              </>
+            )}
+
+            {aba === "catalogo" && (
+              <>
+                <div className="filtros">
+                  {[
+                    ["todos", "Todos"],
+                    ["disponiveis", "Disponíveis"],
+                    ["emprestados", "Emprestados"],
+                  ].map(([id, rotulo]) => (
+                    <button
+                      key={id}
+                      className={`filtro ${filtro === id ? "ativo" : ""}`}
+                      onClick={() => setFiltro(id)}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+                <Grade lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
+              </>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* A janela só existe enquanto "modal" não for null.
+          "key" força recriar o formulário ao trocar de livro. */}
+      {modal && (
+        <ModalLivro
+          key={modal.livro?.id ?? "novo"}
+          livro={modal.livro}
+          aoFechar={() => setModal(null)}
+          aoSalvar={salvarLivro}
+        />
+      )}
+    </div>
   );
 }

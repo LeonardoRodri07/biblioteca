@@ -1,109 +1,255 @@
-/* Estilos simples, só para a tela ficar legível. */
+/* ===== Base ===== */
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: #f4f5f7;
-  color: #222;
+  background: #f4f6fb;
+  color: #1f2937;
 }
 
-.container {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 24px 16px;
+button { font-family: inherit; cursor: pointer; }
+
+/* ===== Layout geral ===== */
+.app { display: flex; min-height: 100vh; }
+
+/* ===== Menu lateral ===== */
+.lateral {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 0;
 }
 
-.erro {
-  background: #fde8e8;
-  color: #b42318;
-  padding: 10px 14px;
-  border-radius: 6px;
+.logo {
+  padding: 0 24px 24px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0b6fa4;
+  line-height: 1.1;
+}
+.logo span { display: block; font-size: 0.8rem; font-weight: 500; color: #6b7280; }
+
+.aba {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  background: none;
+  font-size: 0.95rem;
+  color: #374151;
+  text-align: left;
+  border-right: 4px solid transparent; /* faixa azul do item ativo, como no print */
+}
+.aba:hover { background: #f3f4f6; }
+.aba.ativa { background: #eaf4fa; color: #0b6fa4; font-weight: 600; border-right-color: #0b6fa4; }
+
+/* ===== Conteúdo ===== */
+.conteudo { flex: 1; padding: 24px 32px 48px; min-width: 0; }
+
+.topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.topo h1 { margin: 0; font-size: 1.6rem; }
+
+.secao { font-size: 1.25rem; margin: 28px 0 14px; }
+
+.erro { background: #fde8e8; color: #b42318; padding: 10px 14px; border-radius: 6px; }
+.vazio { color: #6b7280; }
+
+/* ===== Busca e filtros ===== */
+.busca {
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 14px;
+  margin: 12px 0 8px;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
 }
 
-.formulario {
+.filtros { display: flex; gap: 8px; margin: 16px 0 8px; }
+.filtro {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.filtro.ativo { background: #0b6fa4; border-color: #0b6fa4; color: #fff; }
+
+/* ===== Grade de livros ===== */
+.grade {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 24px 20px;
+  margin-top: 12px;
 }
 
-.formulario input,
-.formulario button {
+.cartao h3 { margin: 8px 0 2px; font-size: 0.95rem; line-height: 1.3; }
+.cartao p { margin: 0; font-size: 0.82rem; color: #6b7280; }
+
+/* Capa: proporção de livro (2:3), cortando a imagem sem distorcer. */
+.capa {
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Capa sem foto: fundo azul com o título. */
+.capa-vazia {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  background: linear-gradient(160deg, #0b6fa4, #1e3a5f);
+  color: #fff;
+  font-weight: 700;
+}
+
+.cartao-rodape { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+
+/* Etiqueta (equivalente ao "eBook" do print). */
+.etiqueta {
+  font-size: 0.72rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.etiqueta.verde { color: #15803d; background: #f0fdf4; border-color: #86efac; }
+.etiqueta.laranja { color: #b45309; background: #fffbeb; border-color: #fcd34d; }
+
+/* ===== Menu "..." ===== */
+.menu { position: relative; }
+.menu-botao {
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  color: #374151;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.menu-botao:hover { background: #e5e7eb; }
+
+.menu-lista {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  min-width: 220px;
+  margin: 4px 0 0;
+  padding: 6px 0;
+  list-style: none;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+.menu-lista button {
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.88rem;
+}
+.menu-lista button:hover { background: #f3f4f6; }
+.menu-lista .perigo { color: #dc2626; }
+
+/* ===== Botões ===== */
+.botao-primario {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #0b6fa4;
+  color: #fff;
+  font-size: 0.95rem;
+}
+.botao-primario:hover { background: #095c88; }
+.botao-primario:disabled { opacity: 0.6; cursor: wait; }
+
+.botao-secundario {
+  padding: 10px 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+/* ===== Modal ===== */
+.fundo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.modal {
+  width: 100%;
+  max-width: 600px;
+  max-height: 95vh;
+  overflow-y: auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+}
+.modal h2 { margin: 0 0 12px; }
+
+.modal-form { display: grid; grid-template-columns: 150px 1fr; gap: 20px; }
+.modal-capa { display: flex; flex-direction: column; gap: 10px; }
+
+.botao-arquivo {
+  text-align: center;
+  padding: 8px;
+  border: 1px dashed #9ca3af;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.botao-arquivo:hover { background: #f3f4f6; }
+.marcar { font-size: 0.8rem; display: flex; gap: 6px; align-items: center; }
+
+.campos { display: flex; flex-direction: column; gap: 12px; }
+.campos label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; }
+.campos input {
   padding: 10px;
   font-size: 1rem;
-  border: 1px solid #ccc;
+  font-weight: 400;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
 }
+.linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-.formulario button {
+.modal-acoes {
   grid-column: span 2;
-  background: #2563eb;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-.lista {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.item strong { display: block; }
-.item span { color: #666; font-size: 0.9rem; }
-
-.acoes { display: flex; gap: 8px; }
-.acoes button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  color: white;
-}
-.ok { background: #16a34a; }
-.emprestado { background: #d97706; }
-.apagar { background: #dc2626; }
-
-/* ----- Edição ----- */
-.aviso-edicao {
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 10px 14px;
-  border-radius: 6px;
-}
-
-/* Botão Cancelar ocupa a linha inteira, abaixo do "Salvar". */
-.formulario .cancelar {
-  grid-column: span 2;
-  background: #6b7280;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-/* Item da lista que está sendo editado. */
-.item.em-edicao {
-  outline: 2px solid #2563eb;
-}
-
-.editar { background: #2563eb; }
-
-/* Rodapé (se ainda não existir no seu CSS). */
-.rodape {
-  margin-top: 32px;
-  text-align: center;
-  color: #888;
-  font-size: 0.85rem;
+/* ===== Telas pequenas (celular) ===== */
+@media (max-width: 720px) {
+  .app { flex-direction: column; }
+  .lateral { width: 100%; height: auto; position: static; padding: 12px 0 0; }
+  .logo { padding-bottom: 8px; }
+  .lateral nav { display: flex; }
+  .aba { justify-content: center; padding: 12px 8px; border-right: none; border-bottom: 4px solid transparent; }
+  .aba.ativa { border-bottom-color: #0b6fa4; }
+  .conteudo { padding: 16px; }
+  .modal-form { grid-template-columns: 1fr; }
+  .modal-acoes { grid-column: span 1; }
 }
