@@ -3,7 +3,13 @@ import { urlCapa } from "../api";
 
 // Um livro na grade: capa, etiqueta, menu "..." e textos.
 // Os botões do menu chamam funções que vêm de fora (props).
-export default function CartaoLivro({ livro, aoEditar, aoAlternar, aoApagar }) {
+export default function CartaoLivro({
+  livro,
+  podeGerenciar,
+  aoEditar,
+  aoAlternar,
+  aoApagar,
+}) {
   const [menuAberto, setMenuAberto] = useState(false);
   const refMenu = useRef(null); // referência ao menu, para detectar cliques fora
 
@@ -45,30 +51,32 @@ export default function CartaoLivro({ livro, aoEditar, aoAlternar, aoApagar }) {
           {livro.disponivel ? "Disponível" : "Emprestado"}
         </span>
 
-        <div className="menu" ref={refMenu}>
-          <button
-            className="menu-botao"
-            aria-label={`Opções de ${livro.titulo}`}
-            onClick={() => setMenuAberto(!menuAberto)}
-          >
-            •••
-          </button>
-          {menuAberto && (
-            <ul className="menu-lista">
-              <li><button onClick={() => acionar(aoEditar)}>✏️ Editar</button></li>
-              <li>
-                <button onClick={() => acionar(aoAlternar)}>
-                  {livro.disponivel ? "📤 Marcar como emprestado" : "📥 Marcar como disponível"}
-                </button>
-              </li>
-              <li>
-                <button className="perigo" onClick={() => acionar(aoApagar)}>
-                  🗑️ Apagar
-                </button>
-              </li>
-            </ul>
-          )}
-        </div>
+        {podeGerenciar && (
+          <div className="menu" ref={refMenu}>
+            <button
+              className="menu-botao"
+              aria-label={`Opções de ${livro.titulo}`}
+              onClick={() => setMenuAberto(!menuAberto)}
+            >
+              •••
+            </button>
+            {menuAberto && (
+              <ul className="menu-lista">
+                <li><button onClick={() => acionar(aoEditar)}>✏️ Editar</button></li>
+                <li>
+                  <button onClick={() => acionar(aoAlternar)}>
+                    {livro.disponivel ? "📤 Marcar como emprestado" : "📥 Marcar como disponível"}
+                  </button>
+                </li>
+                <li>
+                  <button className="perigo" onClick={() => acionar(aoApagar)}>
+                    🗑️ Apagar
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       <h3>{livro.titulo}</h3>
