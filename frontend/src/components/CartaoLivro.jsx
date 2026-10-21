@@ -5,6 +5,7 @@ import { urlCapa } from "../api";
 // Os botões do menu chamam funções que vêm de fora (props).
 export default function CartaoLivro({
   livro,
+  aoAbrir,
   podeGerenciar,
   aoEditar,
   aoAlternar,
@@ -35,7 +36,13 @@ export default function CartaoLivro({
 
   return (
     <article className="cartao">
-      <div className="capa">
+      <div
+        className="capa clicavel"
+        role="button"
+        tabIndex={0}
+        onClick={() => aoAbrir(livro)}
+        onKeyDown={(e) => e.key === "Enter" && aoAbrir(livro)}
+      >
         {capa ? (
           <img src={capa} alt={`Capa de ${livro.titulo}`} loading="lazy" />
         ) : (
@@ -79,7 +86,7 @@ export default function CartaoLivro({
         )}
       </div>
 
-      <h3>{livro.titulo}</h3>
+            <h3 className="clicavel" onClick={() => aoAbrir(livro)}>{livro.titulo}</h3>
       <p>
         {livro.autor}
         {livro.ano_publicacao ? ` · ${livro.ano_publicacao}` : ""}

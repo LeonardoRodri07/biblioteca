@@ -9,7 +9,7 @@ class LivroBase(BaseModel):
     autor: str = Field(min_length=1, max_length=120, examples=["Machado de Assis"])
     ano_publicacao: int | None = Field(default=None, ge=1000, le=2100, examples=[1899])
     isbn: str | None = Field(default=None, max_length=20, examples=["9788535902778"])
-
+    sinopse: str | None = Field(default=None, max_length=5000)
 
 # Dados recebidos ao CRIAR um livro (POST).
 class LivroCriar(LivroBase):
@@ -25,7 +25,7 @@ class LivroAtualizar(BaseModel):
     ano_publicacao: int | None = Field(default=None, ge=1000, le=2100)
     isbn: str | None = Field(default=None, max_length=20)
     disponivel: bool | None = None
-
+    sinopse: str | None = Field(default=None, max_length=5000)
 
 # Dados devolvidos pela API (inclui o id gerado pelo banco).
 class LivroResposta(LivroBase):

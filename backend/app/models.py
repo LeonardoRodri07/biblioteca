@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -14,7 +14,7 @@ class Livro(Base):
     isbn: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     disponivel: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     capa: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
+    sinopse: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 # NOVO: quem pode entrar no sistema.
 class Usuario(Base):

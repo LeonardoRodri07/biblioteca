@@ -18,6 +18,7 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
     autor: livro?.autor ?? "",
     ano_publicacao: livro?.ano_publicacao ?? "",
     isbn: livro?.isbn ?? "",
+    sinopse: livro?.sinopse ?? "",
   });
   const [arquivo, setArquivo] = useState(null);     // foto escolhida agora
   const [previa, setPrevia] = useState(null);       // endereço temporário da prévia
@@ -80,6 +81,7 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
           // Campo opcional vazio vira null (limpa o valor no banco).
           ano_publicacao: form.ano_publicacao ? Number(form.ano_publicacao) : null,
           isbn: form.isbn.trim() ? form.isbn.trim() : null,
+          sinopse: form.sinopse.trim() ? form.sinopse.trim() : null,
         },
         arquivo,
         tirarCapa,
@@ -151,6 +153,10 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
                 <input name="isbn" value={form.isbn} onChange={aoDigitar}
                        maxLength={20} />
               </label>
+              <label>Sinopse
+              <textarea name="sinopse" rows={5} maxLength={5000}
+                        value={form.sinopse} onChange={aoDigitar} />
+            </label>
             </div>
           </div>
 

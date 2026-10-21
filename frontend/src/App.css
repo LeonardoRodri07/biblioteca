@@ -289,3 +289,52 @@ button { font-family: inherit; cursor: pointer; }
   .modal-form { grid-template-columns: 1fr; }
   .modal-acoes { grid-column: span 1; }
 }
+
+/* ===== Livro clicável ===== */
+.clicavel { cursor: pointer; }
+.capa.clicavel { transition: transform 0.15s, box-shadow 0.15s; }
+.capa.clicavel:hover { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
+.cartao h3.clicavel:hover { color: #0b6fa4; }
+
+/* ===== Janela de detalhe ===== */
+.modal.detalhe {
+  position: relative;
+  max-width: 780px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+}
+.detalhe-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+.detalhe-fechar:hover { background: #e5e7eb; }
+
+.detalhe-info h2 { margin: 10px 0 4px; font-size: 1.5rem; }
+.detalhe-info h3 { margin: 20px 0 6px; font-size: 1rem; }
+.detalhe-autor { margin: 0; font-size: 1.05rem; color: #374151; }
+.detalhe-meta { margin: 6px 0 0; font-size: 0.85rem; color: #6b7280; }
+.sinopse { margin: 0; line-height: 1.6; white-space: pre-wrap; }
+
+/* Campo de texto longo do formulário. */
+.campos textarea {
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+@media (max-width: 720px) {
+  .modal.detalhe { grid-template-columns: 1fr; }
+  .detalhe-capa { max-width: 220px; margin: 0 auto; }
+}
