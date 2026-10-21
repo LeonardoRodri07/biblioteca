@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   apagarCapa,
   apagarLivro,
   atualizarLivro,
   criarLivro,
+  entrar as autenticar,
   enviarCapa,
   listarLivros,
+  obterToken,
+  removerToken,
+  salvarToken,
+  usuarioAtual,
 } from "./api";
 import CartaoLivro from "./components/CartaoLivro";
+import DetalheLivro from "./components/DetalheLivro";
+import Login from "./components/Login";
 import ModalLivro from "./components/ModalLivro";
 import "./App.css";
 
@@ -18,6 +25,35 @@ const ABAS = [
   { id: "catalogo", rotulo: "Catálogo", icone: "📖" },
 ];
 
+// Grade de cartões. Fica FORA do App para não ser recriada a cada
+// renderização (o que faria a busca perder o foco).
+function Grade({
+  lista,
+  vazio,
+  podeGerenciar,
+  aoAbrir,
+  aoEditar,
+  aoAlternar,
+  aoApagar,
+}) {
+  if (lista.length === 0) return <p className="vazio">{vazio}</p>;
+  return (
+    <div className="grade">
+      {lista.map((livro) => (
+        <CartaoLivro
+          key={livro.id}
+          livro={livro}
+          podeGerenciar={podeGerenciar}
+          aoAbrir={aoAbrir} // CORRIGIDO: antes não era repassado
+          aoEditar={aoEditar}
+          aoAlternar={aoAlternar}
+          aoApagar={aoApagar}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [livros, setLivros] = useState([]);
   const [aba, setAba] = useState("inicio");
@@ -25,24 +61,92 @@ export default function App() {
   const [filtro, setFiltro] = useState("todos"); // todos | disponiveis | emprestados
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [carregandoSessao, setCarregandoSessao] = useState(true);
+  const [usuario, setUsuario] = useState(null);
 
-  // Controla a janela: null = fechada; { livro: null } = novo; { livro } = edição.
+  // Detalhe: guardamos só o id; a janela sempre mostra o livro atualizado.
+  const [detalheId, setDetalheId] = useState(null);
+  const livroDetalhe = livros.find((l) => l.id === detalheId);
+
+  // Janela de cadastro/edição: null = fechada; { livro: null } = novo; { livro } = edição.
   const [modal, setModal] = useState(null);
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     try {
       setLivros(await listarLivros());
       setErro("");
     } catch (e) {
-      setErro("Não foi possível carregar os livros. A API está rodando?");
+      setErro(
+        e.status === 401
+          ? "Sua sessão expirou. Entre novamente."
+          : `Não foi possível carregar os livros: ${e.message}`
+      );
     } finally {
       setCarregando(false);
     }
+  }, []);
+
+  // Ao abrir a página: se há token guardado, valida no backend (GET /api/auth/eu).
+  useEffect(() => {
+    let ativo = true;
+
+    async function restaurarSessao() {
+      if (!obterToken()) {
+        setCarregandoSessao(false);
+        setCarregando(false);
+        return;
+      }
+      try {
+        const usuarioLogado = await usuarioAtual();
+        if (!ativo) return;
+        setUsuario(usuarioLogado);
+        await carregar();
+      } catch (e) {
+        if (!ativo) return;
+        removerToken();
+        setUsuario(null);
+        if (e.status !== 401) setErro(`Não foi possível validar a sessão: ${e.message}`);
+      } finally {
+        if (ativo) setCarregandoSessao(false);
+      }
+    }
+
+    restaurarSessao();
+    return () => {
+      ativo = false;
+    };
+  }, [carregar]);
+
+  // O api.js dispara este evento quando qualquer chamada devolve 401.
+  useEffect(() => {
+    function encerrarSessao() {
+      setUsuario(null);
+      setLivros([]);
+      setModal(null);
+      setDetalheId(null); // NOVO: fecha o detalhe
+      setErro("Sua sessão expirou. Entre novamente.");
+    }
+    window.addEventListener("biblioteca:unauthorized", encerrarSessao);
+    return () => window.removeEventListener("biblioteca:unauthorized", encerrarSessao);
+  }, []);
+
+  async function entrar(username, password) {
+    const resposta = await autenticar(username, password);
+    salvarToken(resposta.access_token);
+    setUsuario(resposta.usuario);
+    setErro("");
+    setCarregando(true);
+    await carregar();
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
+  function sair() {
+    removerToken();
+    setUsuario(null);
+    setLivros([]);
+    setModal(null);
+    setDetalheId(null); // NOVO: fecha o detalhe
+    setErro("");
+  }
 
   // Chamada pelo modal ao clicar em "Salvar".
   // Se lançar erro, o próprio modal o mostra e continua aberto.
@@ -72,8 +176,8 @@ export default function App() {
     if (!window.confirm(`Apagar "${livro.titulo}"?`)) return;
     try {
       await apagarLivro(livro.id);
-      // Se apagou o livro que estava sendo editado, sai do modo edição.
-      if (editandoId === livro.id) cancelarEdicao();
+      // Se apagou o livro que estava aberto na edição, fecha a janela.
+      if (modal?.livro?.id === livro.id) setModal(null);
       await carregar();
     } catch (e) {
       setErro(e.message);
@@ -95,29 +199,34 @@ export default function App() {
   const recentes = [...livros].sort((a, b) => b.id - a.id).slice(0, 6);
   const disponiveis = livros.filter((l) => l.disponivel).slice(0, 6);
 
-  // Desenha uma grade de cartões (ou uma mensagem se estiver vazia).
-  function Grade({ lista, vazio }) {
-    if (lista.length === 0) return <p className="vazio">{vazio}</p>;
+  // Props comuns a todas as grades.
+  // "podeGerenciar" só controla o que aparece na tela; quem bloqueia
+  // de verdade é o backend (403 para usuário comum).
+  const acoesGrade = {
+    podeGerenciar: usuario?.papel === "admin",
+    aoAbrir: (livro) => setDetalheId(livro.id), // CORRIGIDO: antes não existia
+    aoEditar: (livro) => setModal({ livro }),
+    aoAlternar: alternarDisponibilidade,
+    aoApagar: remover,
+  };
+
+  if (carregandoSessao) {
     return (
-      <div className="grade">
-        {lista.map((livro) => (
-          <CartaoLivro
-            key={livro.id}
-            livro={livro}
-            aoEditar={(l) => setModal({ livro: l })}
-            aoAlternar={alternarDisponibilidade}
-            aoApagar={remover}
-          />
-        ))}
-      </div>
+      <main className="tela-login">
+        <p className="vazio">Verificando sessão...</p>
+      </main>
     );
   }
+
+  if (!usuario) return <Login aoEntrar={entrar} />;
 
   return (
     <div className="app">
       {/* ===== Menu lateral ===== */}
       <aside className="lateral">
-        <div className="logo">Biblioteca<span>de Livros</span></div>
+        <div className="logo">
+          Biblioteca<span>de Livros</span>
+        </div>
         <nav>
           {ABAS.map((item) => (
             <button
@@ -135,9 +244,17 @@ export default function App() {
       <main className="conteudo">
         <div className="topo">
           <h1>{ABAS.find((a) => a.id === aba).rotulo}</h1>
-          <button className="botao-primario" onClick={() => setModal({ livro: null })}>
-            + Novo livro
-          </button>
+          <div className="acoes-usuario">
+            <span>{usuario.username}</span>
+            {usuario.papel === "admin" && (
+              <button className="botao-primario" onClick={() => setModal({ livro: null })}>
+                + Novo livro
+              </button>
+            )}
+            <button className="botao-secundario" onClick={sair}>
+              Sair
+            </button>
+          </div>
         </div>
 
         {erro && <p className="erro">{erro}</p>}
@@ -149,11 +266,19 @@ export default function App() {
             {aba === "inicio" && (
               <>
                 <h2 className="secao">Adicionados recentemente</h2>
-                <Grade lista={recentes} vazio="Nenhum livro cadastrado ainda. Clique em “+ Novo livro”." />
+                <Grade
+                  {...acoesGrade}
+                  lista={recentes}
+                  vazio={
+                    usuario.papel === "admin"
+                      ? "Nenhum livro cadastrado ainda. Clique em “+ Novo livro”."
+                      : "Nenhum livro cadastrado ainda."
+                  }
+                />
                 {disponiveis.length > 0 && (
                   <>
                     <h2 className="secao">Disponíveis agora</h2>
-                    <Grade lista={disponiveis} vazio="" />
+                    <Grade {...acoesGrade} lista={disponiveis} vazio="" />
                   </>
                 )}
               </>
@@ -168,7 +293,7 @@ export default function App() {
                   onChange={(e) => setBusca(e.target.value)}
                   autoFocus
                 />
-                <Grade lista={resultadoBusca} vazio="Nenhum livro encontrado." />
+                <Grade {...acoesGrade} lista={resultadoBusca} vazio="Nenhum livro encontrado." />
               </>
             )}
 
@@ -189,14 +314,14 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <Grade lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
+                <Grade {...acoesGrade} lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
               </>
             )}
           </>
         )}
       </main>
 
-      {/* A janela só existe enquanto "modal" não for null.
+      {/* Janela de cadastro/edição (só admin chega aqui, pois só ele vê os botões).
           "key" força recriar o formulário ao trocar de livro. */}
       {modal && (
         <ModalLivro
@@ -205,6 +330,11 @@ export default function App() {
           aoFechar={() => setModal(null)}
           aoSalvar={salvarLivro}
         />
+      )}
+
+      {/* NOVO: janela de detalhe (capa ampliada + sinopse). Qualquer usuário vê. */}
+      {livroDetalhe && (
+        <DetalheLivro livro={livroDetalhe} aoFechar={() => setDetalheId(null)} />
       )}
     </div>
   );

@@ -1,12 +1,18 @@
-# Router: agrupa todas as rotas relacionadas a livros.
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas, storage
 from ..database import get_db
+from ..dependencias import exigir_admin, usuario_atual
 
-router = APIRouter(prefix="/api/livros", tags=["Livros"])
+# Todas as rotas daqui exigem, no mínimo, estar logado.
+# As que alteram dados ainda exigem admin (dependencies na própria rota).
+router = APIRouter(
+    prefix="/api/livros",
+    tags=["Livros"],
+    dependencies=[Depends(usuario_atual)],
+)
 
 
 def buscar_livro_ou_404(livro_id: int, db: Session) -> models.Livro:
@@ -24,16 +30,7 @@ def verificar_isbn_duplicado(isbn: str | None, db: Session, ignorar_id: int | No
         raise HTTPException(status_code=409, detail="Já existe um livro com esse ISBN")
 
 
-@router.post("", response_model=schemas.LivroResposta, status_code=status.HTTP_201_CREATED)
-def criar_livro(dados: schemas.LivroCriar, db: Session = Depends(get_db)):
-    """Cadastra um novo livro (a capa é enviada depois, em /capa)."""
-    verificar_isbn_duplicado(dados.isbn, db)
-    livro = models.Livro(**dados.model_dump())
-    db.add(livro)
-    db.commit()
-    db.refresh(livro)
-    return livro
-
+# ----- LEITURA: qualquer pessoa logada -----
 
 @router.get("", response_model=list[schemas.LivroResposta])
 def listar_livros(disponivel: bool | None = None, db: Session = Depends(get_db)):
@@ -50,7 +47,29 @@ def obter_livro(livro_id: int, db: Session = Depends(get_db)):
     return buscar_livro_ou_404(livro_id, db)
 
 
-@router.patch("/{livro_id}", response_model=schemas.LivroResposta)
+# ----- ESCRITA: somente admin -----
+
+@router.post(
+    "",
+    response_model=schemas.LivroResposta,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(exigir_admin)],
+)
+def criar_livro(dados: schemas.LivroCriar, db: Session = Depends(get_db)):
+    """Cadastra um novo livro (a capa é enviada depois, em /capa)."""
+    verificar_isbn_duplicado(dados.isbn, db)
+    livro = models.Livro(**dados.model_dump())
+    db.add(livro)
+    db.commit()
+    db.refresh(livro)
+    return livro
+
+
+@router.patch(
+    "/{livro_id}",
+    response_model=schemas.LivroResposta,
+    dependencies=[Depends(exigir_admin)],
+)
 def atualizar_livro(livro_id: int, dados: schemas.LivroAtualizar, db: Session = Depends(get_db)):
     """Atualiza apenas os campos enviados."""
     livro = buscar_livro_ou_404(livro_id, db)
@@ -64,35 +83,44 @@ def atualizar_livro(livro_id: int, dados: schemas.LivroAtualizar, db: Session = 
     return livro
 
 
-@router.delete("/{livro_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{livro_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(exigir_admin)],
+)
 def apagar_livro(livro_id: int, db: Session = Depends(get_db)):
     """Remove um livro (e a imagem da capa, se houver)."""
     livro = buscar_livro_ou_404(livro_id, db)
-    storage.remover_capa(livro.capa)  # NOVO: não deixa imagem "órfã" no disco
+    storage.remover_capa(livro.capa)
     db.delete(livro)
     db.commit()
 
 
-# NOVO: enviar/trocar a capa. POST /api/livros/{id}/capa
-# "async def" porque a leitura do arquivo é assíncrona.
-@router.post("/{livro_id}/capa", response_model=schemas.LivroResposta)
+@router.post(
+    "/{livro_id}/capa",
+    response_model=schemas.LivroResposta,
+    dependencies=[Depends(exigir_admin)],
+)
 async def enviar_capa(
     livro_id: int,
-    arquivo: UploadFile = File(...),  # o arquivo vem num formulário multipart
+    arquivo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Envia (ou troca) a imagem de capa do livro. Aceita JPG, PNG ou WEBP até 2 MB."""
+    """Envia (ou troca) a imagem de capa. Aceita JPG, PNG ou WEBP até 2 MB."""
     livro = buscar_livro_ou_404(livro_id, db)
-    novo_nome = await storage.salvar_capa(arquivo)  # valida e salva no disco
-    storage.remover_capa(livro.capa)                # apaga a capa antiga
+    novo_nome = await storage.salvar_capa(arquivo)
+    storage.remover_capa(livro.capa)
     livro.capa = novo_nome
     db.commit()
     db.refresh(livro)
     return livro
 
 
-# NOVO: remover a capa. DELETE /api/livros/{id}/capa
-@router.delete("/{livro_id}/capa", response_model=schemas.LivroResposta)
+@router.delete(
+    "/{livro_id}/capa",
+    response_model=schemas.LivroResposta,
+    dependencies=[Depends(exigir_admin)],
+)
 def remover_capa_do_livro(livro_id: int, db: Session = Depends(get_db)):
     """Remove a imagem de capa do livro."""
     livro = buscar_livro_ou_404(livro_id, db)

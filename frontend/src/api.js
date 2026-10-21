@@ -1,29 +1,60 @@
 // Camada de API: todas as chamadas HTTP ficam aqui.
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const CHAVE_TOKEN = "biblioteca_access_token";
+
+export const obterToken = () => localStorage.getItem(CHAVE_TOKEN);
+
+export const salvarToken = (token) => localStorage.setItem(CHAVE_TOKEN, token);
+
+export const removerToken = () => localStorage.removeItem(CHAVE_TOKEN);
 
 async function requisicao(caminho, opcoes = {}) {
+  const cabecalhos = {};
+  if (opcoes.body instanceof FormData) {
+    // O navegador define o Content-Type e o boundary do multipart.
+  } else if (opcoes.body instanceof URLSearchParams) {
+    cabecalhos["Content-Type"] = "application/x-www-form-urlencoded";
+  } else {
+    cabecalhos["Content-Type"] = "application/json";
+  }
+
+  const token = obterToken();
+  if (token) cabecalhos.Authorization = `Bearer ${token}`;
+
   const resposta = await fetch(`${BASE_URL}${caminho}`, {
-    // JSON precisa do cabeçalho Content-Type. Já o FormData (upload de
-    // arquivo) NÃO: o navegador define sozinho, com um código interno.
-    headers:
-      opcoes.body instanceof FormData
-        ? {}
-        : { "Content-Type": "application/json" },
     ...opcoes,
+    headers: { ...cabecalhos, ...opcoes.headers },
   });
 
   if (resposta.status === 204) return null;
 
-  const dados = await resposta.json();
+  const dados = await resposta.json().catch(() => ({}));
 
   if (!resposta.ok) {
     const detalhe = Array.isArray(dados.detail)
       ? dados.detail.map((d) => d.msg).join("; ")
       : dados.detail;
-    throw new Error(detalhe || "Erro inesperado");
+    const erro = new Error(detalhe || "Erro inesperado");
+    erro.status = resposta.status;
+    if (resposta.status === 401 && caminho !== "/api/auth/login") {
+      removerToken();
+      window.dispatchEvent(new Event("biblioteca:unauthorized"));
+    }
+    throw erro;
   }
   return dados;
 }
+
+export const entrar = (username, password) =>
+  requisicao(
+    "/api/auth/login",
+    {
+      method: "POST",
+      body: new URLSearchParams({ username, password }),
+    },
+  );
+
+export const usuarioAtual = () => requisicao("/api/auth/eu");
 
 // NOVO: monta a URL completa da imagem a partir do nome do arquivo.
 // Devolve null se o livro não tem capa.

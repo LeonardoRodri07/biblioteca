@@ -13,6 +13,40 @@ button { font-family: inherit; cursor: pointer; }
 /* ===== Layout geral ===== */
 .app { display: flex; min-height: 100vh; }
 
+/* ===== Login ===== */
+.tela-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.cartao-login {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08);
+}
+
+.cartao-login h1,
+.cartao-login p { margin: 0; }
+.cartao-login > p:not(.erro) { color: #6b7280; }
+.cartao-login label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.cartao-login input {
+  padding: 11px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+.logo-login { font-size: 1.5rem; font-weight: 800; color: #0b6fa4; line-height: 1.1; }
+.logo-login span { display: block; font-size: 0.8rem; font-weight: 500; color: #6b7280; }
+
 /* ===== Menu lateral ===== */
 .lateral {
   width: 220px;
@@ -55,6 +89,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .topo h1 { margin: 0; font-size: 1.6rem; }
+.acoes-usuario { display: flex; align-items: center; gap: 12px; }
+.acoes-usuario > span { color: #4b5563; }
 
 .secao { font-size: 1.25rem; margin: 28px 0 14px; }
 
@@ -252,4 +288,53 @@ button { font-family: inherit; cursor: pointer; }
   .conteudo { padding: 16px; }
   .modal-form { grid-template-columns: 1fr; }
   .modal-acoes { grid-column: span 1; }
+}
+
+/* ===== Livro clicável ===== */
+.clicavel { cursor: pointer; }
+.capa.clicavel { transition: transform 0.15s, box-shadow 0.15s; }
+.capa.clicavel:hover { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25); }
+.cartao h3.clicavel:hover { color: #0b6fa4; }
+
+/* ===== Janela de detalhe ===== */
+.modal.detalhe {
+  position: relative;
+  max-width: 780px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+}
+.detalhe-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+.detalhe-fechar:hover { background: #e5e7eb; }
+
+.detalhe-info h2 { margin: 10px 0 4px; font-size: 1.5rem; }
+.detalhe-info h3 { margin: 20px 0 6px; font-size: 1rem; }
+.detalhe-autor { margin: 0; font-size: 1.05rem; color: #374151; }
+.detalhe-meta { margin: 6px 0 0; font-size: 0.85rem; color: #6b7280; }
+.sinopse { margin: 0; line-height: 1.6; white-space: pre-wrap; }
+
+/* Campo de texto longo do formulário. */
+.campos textarea {
+  padding: 10px;
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+@media (max-width: 720px) {
+  .modal.detalhe { grid-template-columns: 1fr; }
+  .detalhe-capa { max-width: 220px; margin: 0 auto; }
 }
