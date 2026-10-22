@@ -22,6 +22,7 @@ dist/
 # NUNCA suba senhas ou chaves para o GitHub
 .env
 .env.*
+!.env.example
 
 # ===== Editor e sistema =====
 .vscode/

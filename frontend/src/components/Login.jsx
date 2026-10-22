@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function Login({ aoEntrar }) {
+export default function Login({ aoEntrar, aviso }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState("");
@@ -26,7 +26,7 @@ export default function Login({ aoEntrar }) {
         <h1>Entrar</h1>
         <p>Acesse sua conta para consultar a biblioteca.</p>
 
-        {erro && <p className="erro" role="alert">{erro}</p>}
+        {(erro || aviso) && <p className="erro" role="alert">{erro || aviso}</p>}
 
         <label>
           Usuário

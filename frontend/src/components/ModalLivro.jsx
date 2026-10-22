@@ -144,6 +144,15 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
               <input name="autor" value={form.autor} onChange={aoDigitar}
                      maxLength={120} required />
             </label>
+ <div className="campos">
+            <label>Título *
+              <input name="titulo" value={form.titulo} onChange={aoDigitar}
+                     maxLength={200} required autoFocus />
+            </label>
+            <label>Autor *
+              <input name="autor" value={form.autor} onChange={aoDigitar}
+                     maxLength={120} required />
+            </label>
             <div className="linha">
               <label>Ano
                 <input name="ano_publicacao" type="number" min="1000" max="2100"
@@ -153,11 +162,12 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
                 <input name="isbn" value={form.isbn} onChange={aoDigitar}
                        maxLength={20} />
               </label>
-              <label>Sinopse
+            </div>
+            <label>Sinopse
               <textarea name="sinopse" rows={5} maxLength={5000}
                         value={form.sinopse} onChange={aoDigitar} />
             </label>
-            </div>
+          </div>
           </div>
 
           <div className="modal-acoes">
