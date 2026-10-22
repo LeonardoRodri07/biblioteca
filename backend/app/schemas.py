@@ -26,6 +26,13 @@ class LivroAtualizar(BaseModel):
     isbn: str | None = Field(default=None, max_length=20)
     disponivel: bool | None = None
     sinopse: str | None = Field(default=None, max_length=5000)
+    # Estes campos podem faltar no PATCH, mas não podem vir como null.
+    @field_validator("titulo", "autor", "disponivel")
+    @classmethod
+    def _nao_aceita_nulo(cls, valor):
+        if valor is None:
+            raise ValueError("Este campo não pode ser nulo")
+        return valor
 
 # Dados devolvidos pela API (inclui o id gerado pelo banco).
 class LivroResposta(LivroBase):

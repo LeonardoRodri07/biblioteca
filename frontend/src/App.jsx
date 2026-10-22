@@ -218,7 +218,7 @@ export default function App() {
     );
   }
 
-  if (!usuario) return <Login aoEntrar={entrar} />;
+  if (!usuario) return <Login aoEntrar={entrar} aviso={erro} />;
 
   return (
     <div className="app">
