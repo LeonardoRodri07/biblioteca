@@ -20,3 +20,6 @@ EXPIRA_EM_MINUTOS = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 # Dados do primeiro administrador (criado só se ainda não existir nenhum).
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+# Código geral que dá permissão de bibliotecário no cadastro.
+# Se não estiver definido, o cadastro como bibliotecário fica desativado.
+BIBLIOTECARIO_CODE = os.getenv("BIBLIOTECARIO_CODE")

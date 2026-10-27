@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function Login({ aoEntrar, aviso }) {
+export default function Login({ aoEntrar, aviso, aoIrParaCadastro }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState("");
@@ -49,6 +49,10 @@ export default function Login({ aoEntrar, aviso }) {
         </label>
         <button className="botao-primario" type="submit" disabled={entrando}>
           {entrando ? "Entrando..." : "Entrar"}
+        </button>
+
+        <button type="button" className="link-botao" onClick={aoIrParaCadastro}>
+          Não tenho conta. Criar conta
         </button>
       </form>
     </main>

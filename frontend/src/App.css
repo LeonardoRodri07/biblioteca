@@ -338,3 +338,21 @@ button { font-family: inherit; cursor: pointer; }
   .modal.detalhe { grid-template-columns: 1fr; }
   .detalhe-capa { max-width: 220px; margin: 0 auto; }
 }
+
+/* ===== Links e opções da tela de login/cadastro ===== */
+.link-botao {
+  border: none;
+  background: none;
+  color: #0b6fa4;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 4px;
+}
+.link-botao:hover { color: #095c88; }
+
+.cartao-login .marcar-linha {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
