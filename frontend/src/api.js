@@ -55,6 +55,12 @@ export const entrar = (username, password) =>
   );
 
 export const usuarioAtual = () => requisicao("/api/auth/eu");
+// NOVO: cria a conta. dados = { username, senha, codigo_bibliotecario }
+export const registrar = (dados) =>
+  requisicao("/api/auth/registro", {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
 
 // NOVO: monta a URL completa da imagem a partir do nome do arquivo.
 // Devolve null se o livro não tem capa.

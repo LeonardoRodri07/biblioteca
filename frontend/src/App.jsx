@@ -8,6 +8,7 @@ import {
   enviarCapa,
   listarLivros,
   obterToken,
+  registrar,
   removerToken,
   salvarToken,
   usuarioAtual,
@@ -17,6 +18,7 @@ import DetalheLivro from "./components/DetalheLivro";
 import Login from "./components/Login";
 import ModalLivro from "./components/ModalLivro";
 import "./App.css";
+import Cadastro from "./components/Cadastro";
 
 // Abas do menu lateral.
 const ABAS = [
@@ -35,6 +37,10 @@ function Grade({
   aoEditar,
   aoAlternar,
   aoApagar,
+  obterToken,
+  registrar,
+  removerToken,
+
 }) {
   if (lista.length === 0) return <p className="vazio">{vazio}</p>;
   return (
@@ -63,6 +69,8 @@ export default function App() {
   const [carregando, setCarregando] = useState(true);
   const [carregandoSessao, setCarregandoSessao] = useState(true);
   const [usuario, setUsuario] = useState(null);
+    // Qual tela mostrar quando não há ninguém logado: "login" ou "cadastro".
+  const [telaPublica, setTelaPublica] = useState("login");
 
   // Detalhe: guardamos só o id; a janela sempre mostra o livro atualizado.
   const [detalheId, setDetalheId] = useState(null);
@@ -146,6 +154,17 @@ export default function App() {
     setModal(null);
     setDetalheId(null); // NOVO: fecha o detalhe
     setErro("");
+    setTelaPublica("login");
+  }
+
+    // Cria a conta e já deixa a pessoa logada (a API devolve o token).
+  async function cadastrar(dados) {
+    const resposta = await registrar(dados);
+    salvarToken(resposta.access_token);
+    setUsuario(resposta.usuario);
+    setErro("");
+    setCarregando(true);
+    await carregar();
   }
 
   // Chamada pelo modal ao clicar em "Salvar".
@@ -218,7 +237,22 @@ export default function App() {
     );
   }
 
-  if (!usuario) return <Login aoEntrar={entrar} aviso={erro} />;
+    if (!usuario) {
+    // Ao trocar de tela, limpa mensagens de erro da tela anterior.
+    const irPara = (tela) => {
+      setErro("");
+      setTelaPublica(tela);
+    };
+    return telaPublica === "cadastro" ? (
+      <Cadastro aoCadastrar={cadastrar} aoIrParaLogin={() => irPara("login")} />
+    ) : (
+      <Login
+        aoEntrar={entrar}
+        aviso={erro}
+        aoIrParaCadastro={() => irPara("cadastro")}
+      />
+    );
+  }
 
   return (
     <div className="app">

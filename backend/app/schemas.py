@@ -87,3 +87,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     usuario: UsuarioResposta
+
+# Dados recebidos no AUTOCADASTRO (página "Criar conta").
+class UsuarioRegistro(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$",
+                          examples=["maria"])
+    senha: str = Field(min_length=8, max_length=72)
+    # Só preencha para virar bibliotecário. Sem ele, a conta é de usuário comum.
+    codigo_bibliotecario: str | None = Field(default=None, max_length=128)
+
+    _checar_senha = field_validator("senha")(_validar_tamanho_senha)
