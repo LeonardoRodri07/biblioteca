@@ -90,6 +90,7 @@ export default function CartaoLivro({
       <p>
         {livro.autor}
         {livro.ano_publicacao ? ` · ${livro.ano_publicacao}` : ""}
+        {livro.categoria && <span className="categoria-tag">{livro.categoria}</span>}
       </p>
     </article>
   );

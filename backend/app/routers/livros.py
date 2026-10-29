@@ -30,14 +30,36 @@ def verificar_isbn_duplicado(isbn: str | None, db: Session, ignorar_id: int | No
         raise HTTPException(status_code=409, detail="Já existe um livro com esse ISBN")
 
 
+# NOVO: evita categorias "duplicadas" só por maiúsculas/minúsculas.
+# Se já existe "Romance" e chega "romance", devolve "Romance".
+def canonizar_categoria(categoria: str | None, db: Session, ignorar_id: int | None = None) -> str | None:
+    if not categoria:
+        return None
+    consulta = select(models.Livro.categoria).where(models.Livro.categoria.is_not(None)).distinct()
+    if ignorar_id is not None:
+        # Ignora o próprio livro, para permitir corrigir a grafia dele.
+        consulta = consulta.where(models.Livro.id != ignorar_id)
+    for existente in db.scalars(consulta).all():
+        if existente.casefold() == categoria.casefold():
+            return existente
+    return categoria
+
+
 # ----- LEITURA: qualquer pessoa logada -----
 
 @router.get("", response_model=list[schemas.LivroResposta])
-def listar_livros(disponivel: bool | None = None, db: Session = Depends(get_db)):
-    """Lista todos os livros (com filtro opcional de disponibilidade)."""
+def listar_livros(
+    disponivel: bool | None = None,   # /api/livros?disponivel=true
+    categoria: str | None = None,     # NOVO: /api/livros?categoria=Romance
+    db: Session = Depends(get_db),
+):
+    """Lista os livros, com filtros opcionais de disponibilidade e categoria."""
     consulta = select(models.Livro).order_by(models.Livro.id)
     if disponivel is not None:
         consulta = consulta.where(models.Livro.disponivel == disponivel)
+    if categoria is not None:
+        # Aceita "romance" ou "Romance": usa a grafia que está guardada.
+        consulta = consulta.where(models.Livro.categoria == canonizar_categoria(categoria, db))
     return db.scalars(consulta).all()
 
 
@@ -58,7 +80,9 @@ def obter_livro(livro_id: int, db: Session = Depends(get_db)):
 def criar_livro(dados: schemas.LivroCriar, db: Session = Depends(get_db)):
     """Cadastra um novo livro (a capa é enviada depois, em /capa)."""
     verificar_isbn_duplicado(dados.isbn, db)
-    livro = models.Livro(**dados.model_dump())
+    campos = dados.model_dump()
+    campos["categoria"] = canonizar_categoria(campos["categoria"], db)  # NOVO
+    livro = models.Livro(**campos)
     db.add(livro)
     db.commit()
     db.refresh(livro)
@@ -76,6 +100,8 @@ def atualizar_livro(livro_id: int, dados: schemas.LivroAtualizar, db: Session = 
     mudancas = dados.model_dump(exclude_unset=True)
     if "isbn" in mudancas:
         verificar_isbn_duplicado(mudancas["isbn"], db, ignorar_id=livro_id)
+    if "categoria" in mudancas:  # NOVO
+        mudancas["categoria"] = canonizar_categoria(mudancas["categoria"], db, ignorar_id=livro_id)
     for campo, valor in mudancas.items():
         setattr(livro, campo, valor)
     db.commit()

@@ -15,6 +15,8 @@ class Livro(Base):
     disponivel: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     capa: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sinopse: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # NOVO: categoria do livro (ex.: "Romance"). None = sem categoria.
+    categoria: Mapped[str | None] = mapped_column(String(60), nullable=True)
 
 # NOVO: quem pode entrar no sistema.
 class Usuario(Base):

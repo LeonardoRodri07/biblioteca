@@ -8,7 +8,7 @@ const TAMANHO_MAXIMO = 2 * 1024 * 1024; // 2 MB
 // Janela de cadastro/edição.
 // livro: o livro sendo editado, ou null para cadastrar um novo.
 // aoSalvar: função assíncrona do App que conversa com a API.
-export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
+export default function ModalLivro({ livro, categorias = [], aoFechar, aoSalvar }) {
   const editando = Boolean(livro);
 
   // O formulário já começa preenchido quando estamos editando.
@@ -19,6 +19,7 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
     ano_publicacao: livro?.ano_publicacao ?? "",
     isbn: livro?.isbn ?? "",
     sinopse: livro?.sinopse ?? "",
+    categoria: livro?.categoria ?? "",
   });
   const [arquivo, setArquivo] = useState(null);     // foto escolhida agora
   const [previa, setPrevia] = useState(null);       // endereço temporário da prévia
@@ -26,16 +27,11 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  // Gera a prévia da foto escolhida e libera a memória quando ela muda.
+  // Libera a URL temporária da prévia quando ela muda ou o modal fecha.
   useEffect(() => {
-    if (!arquivo) {
-      setPrevia(null);
-      return;
-    }
-    const endereco = URL.createObjectURL(arquivo);
-    setPrevia(endereco);
-    return () => URL.revokeObjectURL(endereco);
-  }, [arquivo]);
+    if (!previa) return;
+    return () => URL.revokeObjectURL(previa);
+  }, [previa]);
 
   // Tecla Esc fecha a janela.
   useEffect(() => {
@@ -65,6 +61,7 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
       return;
     }
     setErro("");
+    setPrevia(URL.createObjectURL(escolhido));
     setArquivo(escolhido);
     setTirarCapa(false);
   }
@@ -82,6 +79,7 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
           ano_publicacao: form.ano_publicacao ? Number(form.ano_publicacao) : null,
           isbn: form.isbn.trim() ? form.isbn.trim() : null,
           sinopse: form.sinopse.trim() ? form.sinopse.trim() : null,
+          categoria: form.categoria.trim() ? form.categoria.trim() : null,
         },
         arquivo,
         tirarCapa,
@@ -95,7 +93,8 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
   }
 
   // Qual imagem mostrar na prévia: a nova, ou a atual (se não for removida).
-  const imagemMostrada = previa || (!tirarCapa ? urlCapa(livro?.capa) : null);
+  const imagemMostrada =
+    (arquivo ? previa : null) || (!tirarCapa ? urlCapa(livro?.capa) : null);
 
   return (
     // Clicar no fundo escuro fecha a janela.
@@ -144,14 +143,13 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
               <input name="autor" value={form.autor} onChange={aoDigitar}
                      maxLength={120} required />
             </label>
- <div className="campos">
-            <label>Título *
-              <input name="titulo" value={form.titulo} onChange={aoDigitar}
-                     maxLength={200} required autoFocus />
-            </label>
-            <label>Autor *
-              <input name="autor" value={form.autor} onChange={aoDigitar}
-                     maxLength={120} required />
+            <label>Categoria
+              <input name="categoria" list="lista-categorias" value={form.categoria}
+                     onChange={aoDigitar} maxLength={60}
+                     placeholder="Ex.: Romance (escolha ou digite uma nova)" />
+              <datalist id="lista-categorias">
+                {categorias.map((nome) => <option key={nome} value={nome} />)}
+              </datalist>
             </label>
             <div className="linha">
               <label>Ano
@@ -167,7 +165,6 @@ export default function ModalLivro({ livro, aoFechar, aoSalvar }) {
               <textarea name="sinopse" rows={5} maxLength={5000}
                         value={form.sinopse} onChange={aoDigitar} />
             </label>
-          </div>
           </div>
 
           <div className="modal-acoes">
