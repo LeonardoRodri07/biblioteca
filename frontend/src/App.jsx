@@ -27,6 +27,9 @@ const ABAS = [
   { id: "catalogo", rotulo: "Catálogo", icone: "📖" },
 ];
 
+// Valor especial do filtro: livros que ainda não têm categoria.
+const SEM_CATEGORIA = "__sem__";
+
 // Grade de cartões. Fica FORA do App para não ser recriada a cada
 // renderização (o que faria a busca perder o foco).
 function Grade({
@@ -37,10 +40,6 @@ function Grade({
   aoEditar,
   aoAlternar,
   aoApagar,
-  obterToken,
-  registrar,
-  removerToken,
-
 }) {
   if (lista.length === 0) return <p className="vazio">{vazio}</p>;
   return (
@@ -71,6 +70,7 @@ export default function App() {
   const [usuario, setUsuario] = useState(null);
     // Qual tela mostrar quando não há ninguém logado: "login" ou "cadastro".
   const [telaPublica, setTelaPublica] = useState("login");
+  const [categoriaFiltro, setCategoriaFiltro] = useState(""); // "" = todas
 
   // Detalhe: guardamos só o id; a janela sempre mostra o livro atualizado.
   const [detalheId, setDetalheId] = useState(null);
@@ -203,16 +203,40 @@ export default function App() {
     }
   }
 
-  // Filtro da busca: procura no título, autor e ISBN (sem diferenciar maiúsculas).
+    // Categorias existentes (sem repetir, em ordem alfabética) e as contagens.
+  const categorias = [...new Set(livros.map((l) => l.categoria).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+  const totalPorCategoria = (nome) => livros.filter((l) => l.categoria === nome).length;
+  const totalSemCategoria = livros.filter((l) => !l.categoria).length;
+
+  // Se a categoria escolhida deixou de existir (ex.: apagou o último livro dela),
+  // volta sozinho para "todas".
+  const categoriaAtiva =
+    (categoriaFiltro === SEM_CATEGORIA && totalSemCategoria > 0) || categorias.includes(categoriaFiltro)
+      ? categoriaFiltro
+      : "";
+
+  // Filtro da busca: procura no título, autor, ISBN e categoria (sem diferenciar maiúsculas).
   const termo = busca.trim().toLowerCase();
   const resultadoBusca = livros.filter((l) =>
-    [l.titulo, l.autor, l.isbn ?? ""].some((campo) => campo.toLowerCase().includes(termo))
+    [l.titulo, l.autor, l.isbn ?? "", l.categoria ?? ""].some((campo) =>
+      campo.toLowerCase().includes(termo)
+    )
   );
 
-  // Filtro do catálogo por disponibilidade.
-  const doCatalogo = livros.filter((l) =>
-    filtro === "todos" ? true : filtro === "disponiveis" ? l.disponivel : !l.disponivel
-  );
+  // Filtro do catálogo: disponibilidade E categoria.
+  const doCatalogo = livros.filter((l) => {
+    const statusOk =
+      filtro === "todos" ? true : filtro === "disponiveis" ? l.disponivel : !l.disponivel;
+    const categoriaOk =
+      categoriaAtiva === ""
+        ? true
+        : categoriaAtiva === SEM_CATEGORIA
+          ? !l.categoria
+          : l.categoria === categoriaAtiva;
+    return statusOk && categoriaOk;
+  });
 
   // Prateleiras da aba Início.
   const recentes = [...livros].sort((a, b) => b.id - a.id).slice(0, 6);
@@ -347,6 +371,23 @@ export default function App() {
                       {rotulo}
                     </button>
                   ))}
+
+                  <select
+                    className="filtro-categoria"
+                    value={categoriaAtiva}
+                    onChange={(e) => setCategoriaFiltro(e.target.value)}
+                    aria-label="Filtrar por categoria"
+                  >
+                    <option value="">Todas as categorias</option>
+                    {categorias.map((nome) => (
+                      <option key={nome} value={nome}>
+                        {nome} ({totalPorCategoria(nome)})
+                      </option>
+                    ))}
+                    {totalSemCategoria > 0 && (
+                      <option value={SEM_CATEGORIA}>Sem categoria ({totalSemCategoria})</option>
+                    )}
+                  </select>
                 </div>
                 <Grade {...acoesGrade} lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
               </>
@@ -361,6 +402,7 @@ export default function App() {
         <ModalLivro
           key={modal.livro?.id ?? "novo"}
           livro={modal.livro}
+          categorias={categorias}
           aoFechar={() => setModal(null)}
           aoSalvar={salvarLivro}
         />

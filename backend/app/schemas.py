@@ -2,6 +2,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# Limpa o texto da categoria: tira espaços das pontas e do meio, e troca vazio por None.
+def _normalizar_categoria(valor: str | None) -> str | None:
+    if valor is None:
+        return None
+    return " ".join(valor.split()) or None
+
 # Campos comuns a todos os schemas de livro.
 class LivroBase(BaseModel):
     # Field(...) adiciona regras de validação.
@@ -10,6 +16,9 @@ class LivroBase(BaseModel):
     ano_publicacao: int | None = Field(default=None, ge=1000, le=2100, examples=[1899])
     isbn: str | None = Field(default=None, max_length=20, examples=["9788535902778"])
     sinopse: str | None = Field(default=None, max_length=5000)
+    categoria: str | None = Field(default=None, max_length=60, examples=["Romance"])
+
+    _checar_categoria = field_validator("categoria")(_normalizar_categoria)
 
 # Dados recebidos ao CRIAR um livro (POST).
 class LivroCriar(LivroBase):
@@ -33,6 +42,10 @@ class LivroAtualizar(BaseModel):
         if valor is None:
             raise ValueError("Este campo não pode ser nulo")
         return valor
+
+    categoria: str | None = Field(default=None, max_length=60)
+
+    _checar_categoria = field_validator("categoria")(_normalizar_categoria)
 
 # Dados devolvidos pela API (inclui o id gerado pelo banco).
 class LivroResposta(LivroBase):

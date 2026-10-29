@@ -44,6 +44,7 @@ export default function DetalheLivro({ livro, aoFechar }) {
           <h2>{livro.titulo}</h2>
           <p className="detalhe-autor">{livro.autor}</p>
           <p className="detalhe-meta">
+            {livro.categoria && <span className="categoria-tag">{livro.categoria}</span>}
             {livro.ano_publicacao ? `Ano: ${livro.ano_publicacao}` : ""}
             {livro.ano_publicacao && livro.isbn ? " · " : ""}
             {livro.isbn ? `ISBN: ${livro.isbn}` : ""}

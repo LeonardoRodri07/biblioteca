@@ -452,3 +452,26 @@ textarea::placeholder { color: var(--texto-suave); }
   .modal.detalhe { grid-template-columns: 1fr; }
   .detalhe-capa { max-width: 220px; margin: 0 auto; }
 }
+
+/* ===== Categoria ===== */
+.categoria-tag {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  border-radius: 6px;
+  background: var(--primaria-suave);
+  color: var(--destaque);
+}
+
+/* Filtros do catálogo: quebram de linha em telas estreitas. */
+.filtros { flex-wrap: wrap; align-items: center; }
+
+.filtro-categoria {
+  padding: 6px 12px;
+  border: 1px solid var(--borda-input);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 0.9rem;
+}
