@@ -5,12 +5,11 @@ from sqlalchemy import select
 
 from . import config, models, seguranca
 from .database import Base, SessionLocal, engine
-from .routers import auth, livros, usuarios
+from .routers import auth, emprestimos, livros, usuarios
 from .storage import UPLOAD_DIR
 
 # Cria as tabelas que ainda não existem (inclui "usuarios").
 Base.metadata.create_all(bind=engine)
-
 
 def criar_admin_inicial() -> None:
     """Cria o primeiro administrador, se ainda não existir nenhum."""
@@ -54,6 +53,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(usuarios.router)
 app.include_router(livros.router)
+app.include_router(emprestimos.router)
 
 # As capas continuam públicas (a tag <img> não envia o token).
 app.mount("/api/capas", StaticFiles(directory=UPLOAD_DIR), name="capas")

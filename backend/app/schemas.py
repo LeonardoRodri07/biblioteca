@@ -1,5 +1,5 @@
 from typing import Literal
-
+from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Limpa o texto da categoria: tira espaços das pontas e do meio, e troca vazio por None.
@@ -110,3 +110,31 @@ class UsuarioRegistro(BaseModel):
     codigo_bibliotecario: str | None = Field(default=None, max_length=128)
 
     _checar_senha = field_validator("senha")(_validar_tamanho_senha)
+
+    # ===================== EMPRÉSTIMOS =====================
+
+# Dados recebidos ao REGISTRAR um empréstimo.
+class EmprestimoCriar(BaseModel):
+    livro_id: int
+    usuario_id: int
+    # Opcional: sem data, o prazo padrão é de 14 dias.
+    data_vencimento: date | None = None
+
+
+# Dados devolvidos pela API.
+class EmprestimoResposta(BaseModel):
+    id: int
+    livro_id: int
+    livro_titulo: str
+    livro_capa: str | None
+    usuario_id: int
+    usuario_username: str
+    data_emprestimo: date
+    data_vencimento: date
+    data_devolucao: date | None
+    renovacoes: int
+    situacao: Literal["ativo", "atrasado", "devolvido"]
+    # Dias até vencer (negativo = dias de atraso). None se já devolvido.
+    dias_restantes: int | None
+
+    model_config = ConfigDict(from_attributes=True)

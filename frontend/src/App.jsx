@@ -4,24 +4,33 @@ import {
   apagarLivro,
   atualizarLivro,
   criarLivro,
+  devolverEmprestimo,
   entrar as autenticar,
   enviarCapa,
+  listarEmprestimos,
   listarLivros,
+  meusEmprestimos,
   obterToken,
   registrar,
+  registrarEmprestimo,
   removerToken,
+  renovarEmprestimo,
   salvarToken,
   usuarioAtual,
 } from "./api";
+import Cadastro from "./components/Cadastro";
 import CartaoLivro from "./components/CartaoLivro";
 import DetalheLivro from "./components/DetalheLivro";
 import Login from "./components/Login";
+import ModalEmprestimo from "./components/ModalEmprestimo";
 import ModalLivro from "./components/ModalLivro";
+import PainelEmprestimos from "./components/PainelEmprestimos";
+import { plural } from "./utils";
 import "./App.css";
-import Cadastro from "./components/Cadastro";
 
-// Abas do menu lateral.
-const ABAS = [
+// Abas fixas do menu lateral. A aba de empréstimos é montada dentro do App,
+// porque o nome muda conforme o perfil.
+const ABAS_BASE = [
   { id: "inicio", rotulo: "Início", icone: "🏠" },
   { id: "pesquisar", rotulo: "Pesquisar", icone: "🔍" },
   { id: "catalogo", rotulo: "Catálogo", icone: "📖" },
@@ -32,15 +41,7 @@ const SEM_CATEGORIA = "__sem__";
 
 // Grade de cartões. Fica FORA do App para não ser recriada a cada
 // renderização (o que faria a busca perder o foco).
-function Grade({
-  lista,
-  vazio,
-  podeGerenciar,
-  aoAbrir,
-  aoEditar,
-  aoAlternar,
-  aoApagar,
-}) {
+function Grade({ lista, vazio, ativoPorLivro, ...acoes }) {
   if (lista.length === 0) return <p className="vazio">{vazio}</p>;
   return (
     <div className="grade">
@@ -48,11 +49,8 @@ function Grade({
         <CartaoLivro
           key={livro.id}
           livro={livro}
-          podeGerenciar={podeGerenciar}
-          aoAbrir={aoAbrir} // CORRIGIDO: antes não era repassado
-          aoEditar={aoEditar}
-          aoAlternar={aoAlternar}
-          aoApagar={aoApagar}
+          emprestimo={ativoPorLivro.get(livro.id)}
+          {...acoes}
         />
       ))}
     </div>
@@ -61,33 +59,44 @@ function Grade({
 
 export default function App() {
   const [livros, setLivros] = useState([]);
+  const [emprestimos, setEmprestimos] = useState([]);
   const [aba, setAba] = useState("inicio");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("todos"); // todos | disponiveis | emprestados
+  const [categoriaFiltro, setCategoriaFiltro] = useState(""); // "" = todas
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [carregandoSessao, setCarregandoSessao] = useState(true);
   const [usuario, setUsuario] = useState(null);
-    // Qual tela mostrar quando não há ninguém logado: "login" ou "cadastro".
+  const [ocupado, setOcupado] = useState(false); // uma ação (renovar/devolver...) em andamento
+
+  // Qual tela mostrar quando não há ninguém logado: "login" ou "cadastro".
   const [telaPublica, setTelaPublica] = useState("login");
-  const [categoriaFiltro, setCategoriaFiltro] = useState(""); // "" = todas
 
   // Detalhe: guardamos só o id; a janela sempre mostra o livro atualizado.
   const [detalheId, setDetalheId] = useState(null);
   const livroDetalhe = livros.find((l) => l.id === detalheId);
 
-  // Janela de cadastro/edição: null = fechada; { livro: null } = novo; { livro } = edição.
+  // Janelas: cadastro/edição ({ livro: null } = novo) e emprestar (o livro escolhido).
   const [modal, setModal] = useState(null);
+  const [livroEmprestar, setLivroEmprestar] = useState(null);
 
-  const carregar = useCallback(async () => {
+  // Carrega livros e empréstimos juntos.
+  // Bibliotecário recebe todos os empréstimos; usuário comum, só os próprios.
+  const carregar = useCallback(async (papel) => {
     try {
-      setLivros(await listarLivros());
+      const [listaLivros, listaEmprestimos] = await Promise.all([
+        listarLivros(),
+        papel === "admin" ? listarEmprestimos() : meusEmprestimos(),
+      ]);
+      setLivros(listaLivros);
+      setEmprestimos(listaEmprestimos);
       setErro("");
     } catch (e) {
       setErro(
         e.status === 401
           ? "Sua sessão expirou. Entre novamente."
-          : `Não foi possível carregar os livros: ${e.message}`
+          : `Não foi possível carregar os dados: ${e.message}`
       );
     } finally {
       setCarregando(false);
@@ -108,7 +117,7 @@ export default function App() {
         const usuarioLogado = await usuarioAtual();
         if (!ativo) return;
         setUsuario(usuarioLogado);
-        await carregar();
+        await carregar(usuarioLogado.papel);
       } catch (e) {
         if (!ativo) return;
         removerToken();
@@ -130,8 +139,10 @@ export default function App() {
     function encerrarSessao() {
       setUsuario(null);
       setLivros([]);
+      setEmprestimos([]);
       setModal(null);
-      setDetalheId(null); // NOVO: fecha o detalhe
+      setLivroEmprestar(null);
+      setDetalheId(null);
       setErro("Sua sessão expirou. Entre novamente.");
     }
     window.addEventListener("biblioteca:unauthorized", encerrarSessao);
@@ -144,80 +155,113 @@ export default function App() {
     setUsuario(resposta.usuario);
     setErro("");
     setCarregando(true);
-    await carregar();
+    await carregar(resposta.usuario.papel);
   }
 
-  function sair() {
-    removerToken();
-    setUsuario(null);
-    setLivros([]);
-    setModal(null);
-    setDetalheId(null); // NOVO: fecha o detalhe
-    setErro("");
-    setTelaPublica("login");
-  }
-
-    // Cria a conta e já deixa a pessoa logada (a API devolve o token).
+  // Cria a conta e já deixa a pessoa logada (a API devolve o token).
   async function cadastrar(dados) {
     const resposta = await registrar(dados);
     salvarToken(resposta.access_token);
     setUsuario(resposta.usuario);
     setErro("");
     setCarregando(true);
-    await carregar();
+    await carregar(resposta.usuario.papel);
   }
 
-  // Chamada pelo modal ao clicar em "Salvar".
+  function sair() {
+    removerToken();
+    setUsuario(null);
+    setLivros([]);
+    setEmprestimos([]);
+    setModal(null);
+    setLivroEmprestar(null);
+    setDetalheId(null);
+    setAba("inicio");
+    setErro("");
+    setTelaPublica("login");
+  }
+
+  // Executa uma ação, recarrega os dados e mostra o erro (se houver).
+  // "ocupado" desabilita os botões enquanto espera (evita clique duplo).
+  async function executar(acao) {
+    setOcupado(true);
+    try {
+      await acao();
+      await carregar(usuario.papel);
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  // Chamada pelo modal de livro ao clicar em "Salvar".
   // Se lançar erro, o próprio modal o mostra e continua aberto.
   async function salvarLivro({ dados, arquivo, tirarCapa }) {
-    // 1) cria ou atualiza os dados do livro
     const salvo = modal.livro
       ? await atualizarLivro(modal.livro.id, dados)
       : await criarLivro(dados);
 
-    // 2) cuida da capa: nova foto, ou remoção da atual
     if (arquivo) await enviarCapa(salvo.id, arquivo);
     else if (tirarCapa && salvo.capa) await apagarCapa(salvo.id);
 
-    await carregar();
+    await carregar(usuario.papel);
   }
 
-  async function alternarDisponibilidade(livro) {
-    try {
-      await atualizarLivro(livro.id, { disponivel: !livro.disponivel });
-      await carregar();
-    } catch (e) {
-      setErro(e.message);
-    }
+  // Chamada pelo modal "Emprestar". Erros aparecem dentro dele.
+  async function emprestar(dados) {
+    await registrarEmprestimo(dados);
+    await carregar(usuario.papel);
   }
+
+  const devolver = (emprestimo) => {
+    if (!window.confirm(`Registrar a devolução de "${emprestimo.livro_titulo}"?`)) return;
+    return executar(() => devolverEmprestimo(emprestimo.id));
+  };
+
+  const renovar = (emprestimo) => executar(() => renovarEmprestimo(emprestimo.id));
+
+  // Só usado para livros antigos, marcados "emprestado" à mão (sem registro).
+  const alternarDisponibilidade = (livro) =>
+    executar(() => atualizarLivro(livro.id, { disponivel: !livro.disponivel }));
 
   async function remover(livro) {
     if (!window.confirm(`Apagar "${livro.titulo}"?`)) return;
-    try {
+    await executar(async () => {
       await apagarLivro(livro.id);
-      // Se apagou o livro que estava aberto na edição, fecha a janela.
       if (modal?.livro?.id === livro.id) setModal(null);
-      await carregar();
-    } catch (e) {
-      setErro(e.message);
-    }
+    });
   }
 
-    // Categorias existentes (sem repetir, em ordem alfabética) e as contagens.
+  // ===== Dados derivados =====
+  const ehAdmin = usuario?.papel === "admin";
+
+  // livro_id -> empréstimo em andamento (só os que esta pessoa pode ver).
+  const ativoPorLivro = new Map(
+    emprestimos.filter((e) => !e.data_devolucao).map((e) => [e.livro_id, e])
+  );
+  const atrasados = emprestimos.filter((e) => e.situacao === "atrasado");
+
+  const abas = [
+    ...ABAS_BASE,
+    { id: "emprestimos", rotulo: ehAdmin ? "Empréstimos" : "Meus empréstimos", icone: "🔖" },
+  ];
+
+  // Categorias existentes (sem repetir, em ordem alfabética) e as contagens.
   const categorias = [...new Set(livros.map((l) => l.categoria).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "pt-BR")
   );
   const totalPorCategoria = (nome) => livros.filter((l) => l.categoria === nome).length;
   const totalSemCategoria = livros.filter((l) => !l.categoria).length;
 
-  // Se a categoria escolhida deixou de existir (ex.: apagou o último livro dela),
-  // volta sozinho para "todas".
+  // Se a categoria escolhida deixou de existir, volta sozinho para "todas".
   const categoriaAtiva =
-    (categoriaFiltro === SEM_CATEGORIA && totalSemCategoria > 0) || categorias.includes(categoriaFiltro)
+    (categoriaFiltro === SEM_CATEGORIA && totalSemCategoria > 0) ||
+    categorias.includes(categoriaFiltro)
       ? categoriaFiltro
       : "";
 
-  // Filtro da busca: procura no título, autor, ISBN e categoria (sem diferenciar maiúsculas).
+  // Busca: título, autor, ISBN e categoria (sem diferenciar maiúsculas).
   const termo = busca.trim().toLowerCase();
   const resultadoBusca = livros.filter((l) =>
     [l.titulo, l.autor, l.isbn ?? "", l.categoria ?? ""].some((campo) =>
@@ -225,7 +269,7 @@ export default function App() {
     )
   );
 
-  // Filtro do catálogo: disponibilidade E categoria.
+  // Catálogo: disponibilidade E categoria.
   const doCatalogo = livros.filter((l) => {
     const statusOk =
       filtro === "todos" ? true : filtro === "disponiveis" ? l.disponivel : !l.disponivel;
@@ -246,13 +290,17 @@ export default function App() {
   // "podeGerenciar" só controla o que aparece na tela; quem bloqueia
   // de verdade é o backend (403 para usuário comum).
   const acoesGrade = {
-    podeGerenciar: usuario?.papel === "admin",
-    aoAbrir: (livro) => setDetalheId(livro.id), // CORRIGIDO: antes não existia
+    ativoPorLivro,
+    podeGerenciar: ehAdmin,
+    aoAbrir: (livro) => setDetalheId(livro.id),
     aoEditar: (livro) => setModal({ livro }),
     aoAlternar: alternarDisponibilidade,
+    aoEmprestar: (livro) => setLivroEmprestar(livro),
+    aoDevolver: devolver,
     aoApagar: remover,
   };
 
+  // ===== Telas sem login =====
   if (carregandoSessao) {
     return (
       <main className="tela-login">
@@ -261,7 +309,7 @@ export default function App() {
     );
   }
 
-    if (!usuario) {
+  if (!usuario) {
     // Ao trocar de tela, limpa mensagens de erro da tela anterior.
     const irPara = (tela) => {
       setErro("");
@@ -270,14 +318,11 @@ export default function App() {
     return telaPublica === "cadastro" ? (
       <Cadastro aoCadastrar={cadastrar} aoIrParaLogin={() => irPara("login")} />
     ) : (
-      <Login
-        aoEntrar={entrar}
-        aviso={erro}
-        aoIrParaCadastro={() => irPara("cadastro")}
-      />
+      <Login aoEntrar={entrar} aviso={erro} aoIrParaCadastro={() => irPara("cadastro")} />
     );
   }
 
+  // ===== Sistema =====
   return (
     <div className="app">
       {/* ===== Menu lateral ===== */}
@@ -286,13 +331,18 @@ export default function App() {
           Biblioteca<span>de Livros</span>
         </div>
         <nav>
-          {ABAS.map((item) => (
+          {abas.map((item) => (
             <button
               key={item.id}
               className={`aba ${aba === item.id ? "ativa" : ""}`}
               onClick={() => setAba(item.id)}
             >
               <span>{item.icone}</span> {item.rotulo}
+              {item.id === "emprestimos" && atrasados.length > 0 && (
+                <span className="contador" title="Empréstimos atrasados">
+                  {atrasados.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -301,10 +351,10 @@ export default function App() {
       {/* ===== Conteúdo ===== */}
       <main className="conteudo">
         <div className="topo">
-          <h1>{ABAS.find((a) => a.id === aba).rotulo}</h1>
+          <h1>{abas.find((a) => a.id === aba)?.rotulo}</h1>
           <div className="acoes-usuario">
             <span>{usuario.username}</span>
-            {usuario.papel === "admin" && (
+            {ehAdmin && (
               <button className="botao-primario" onClick={() => setModal({ livro: null })}>
                 + Novo livro
               </button>
@@ -317,6 +367,19 @@ export default function App() {
 
         {erro && <p className="erro">{erro}</p>}
 
+        {/* Aviso de atraso em todas as abas, exceto na própria aba de empréstimos. */}
+        {aba !== "emprestimos" && atrasados.length > 0 && (
+          <div className="aviso-atraso" role="alert">
+            <span>
+              ⚠️{" "}
+              {ehAdmin
+                ? `${atrasados.length} ${plural(atrasados.length, "empréstimo atrasado", "empréstimos atrasados")}.`
+                : `Você tem ${atrasados.length} ${plural(atrasados.length, "livro atrasado", "livros atrasados")}. Faça a devolução.`}
+            </span>
+            <button onClick={() => setAba("emprestimos")}>Ver</button>
+          </div>
+        )}
+
         {carregando ? (
           <p className="vazio">Carregando...</p>
         ) : (
@@ -328,7 +391,7 @@ export default function App() {
                   {...acoesGrade}
                   lista={recentes}
                   vazio={
-                    usuario.papel === "admin"
+                    ehAdmin
                       ? "Nenhum livro cadastrado ainda. Clique em “+ Novo livro”."
                       : "Nenhum livro cadastrado ainda."
                   }
@@ -346,7 +409,7 @@ export default function App() {
               <>
                 <input
                   className="busca"
-                  placeholder="Buscar por título, autor ou ISBN..."
+                  placeholder="Buscar por título, autor, ISBN ou categoria..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   autoFocus
@@ -371,7 +434,6 @@ export default function App() {
                       {rotulo}
                     </button>
                   ))}
-
                   <select
                     className="filtro-categoria"
                     value={categoriaAtiva}
@@ -389,15 +451,29 @@ export default function App() {
                     )}
                   </select>
                 </div>
-                <Grade {...acoesGrade} lista={doCatalogo} vazio="Nenhum livro nesta categoria." />
+                <Grade
+                  {...acoesGrade}
+                  lista={doCatalogo}
+                  vazio="Nenhum livro com esses filtros."
+                />
               </>
+            )}
+
+            {aba === "emprestimos" && (
+              <PainelEmprestimos
+                emprestimos={emprestimos}
+                admin={ehAdmin}
+                ocupado={ocupado}
+                aoRenovar={renovar}
+                aoDevolver={devolver}
+                aoAbrirLivro={(id) => setDetalheId(id)}
+              />
             )}
           </>
         )}
       </main>
 
-      {/* Janela de cadastro/edição (só admin chega aqui, pois só ele vê os botões).
-          "key" força recriar o formulário ao trocar de livro. */}
+      {/* Janela de cadastro/edição. "key" recria o formulário ao trocar de livro. */}
       {modal && (
         <ModalLivro
           key={modal.livro?.id ?? "novo"}
@@ -408,9 +484,24 @@ export default function App() {
         />
       )}
 
-      {/* NOVO: janela de detalhe (capa ampliada + sinopse). Qualquer usuário vê. */}
+      {/* Janela "Emprestar" (só o bibliotecário chega aqui). */}
+      {livroEmprestar && (
+        <ModalEmprestimo
+          key={livroEmprestar.id}
+          livro={livroEmprestar}
+          aoFechar={() => setLivroEmprestar(null)}
+          aoConfirmar={emprestar}
+        />
+      )}
+
+      {/* Janela de detalhe (capa ampliada, empréstimo e sinopse). */}
       {livroDetalhe && (
-        <DetalheLivro livro={livroDetalhe} aoFechar={() => setDetalheId(null)} />
+        <DetalheLivro
+          livro={livroDetalhe}
+          emprestimo={ativoPorLivro.get(livroDetalhe.id)}
+          admin={ehAdmin}
+          aoFechar={() => setDetalheId(null)}
+        />
       )}
     </div>
   );
