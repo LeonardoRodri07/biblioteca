@@ -94,3 +94,24 @@ export const enviarCapa = (id, arquivo) => {
 // NOVO: remove a capa do livro.
 export const apagarCapa = (id) =>
   requisicao(`/api/livros/${id}/capa`, { method: "DELETE" });
+
+// ===== Usuários e empréstimos =====
+
+// Só o bibliotecário pode listar contas (usado na janela "Emprestar").
+export const listarUsuarios = () => requisicao("/api/usuarios");
+
+// Bibliotecário: todos os empréstimos.
+export const listarEmprestimos = () => requisicao("/api/emprestimos");
+
+// Qualquer pessoa logada: os próprios empréstimos.
+export const meusEmprestimos = () => requisicao("/api/emprestimos/meus");
+
+// dados = { livro_id, usuario_id, data_vencimento (opcional) }
+export const registrarEmprestimo = (dados) =>
+  requisicao("/api/emprestimos", { method: "POST", body: JSON.stringify(dados) });
+
+export const devolverEmprestimo = (id) =>
+  requisicao(`/api/emprestimos/${id}/devolver`, { method: "POST" });
+
+export const renovarEmprestimo = (id) =>
+  requisicao(`/api/emprestimos/${id}/renovar`, { method: "POST" });

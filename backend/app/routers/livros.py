@@ -29,6 +29,14 @@ def verificar_isbn_duplicado(isbn: str | None, db: Session, ignorar_id: int | No
     if existente and existente.id != ignorar_id:
         raise HTTPException(status_code=409, detail="Já existe um livro com esse ISBN")
 
+# NOVO: o livro tem empréstimo em andamento?
+def emprestimo_ativo(livro_id: int, db: Session):
+    return db.scalar(
+        select(models.Emprestimo).where(
+            models.Emprestimo.livro_id == livro_id,
+            models.Emprestimo.data_devolucao.is_(None),
+        )
+    )
 
 # NOVO: evita categorias "duplicadas" só por maiúsculas/minúsculas.
 # Se já existe "Romance" e chega "romance", devolve "Romance".
@@ -98,6 +106,12 @@ def atualizar_livro(livro_id: int, dados: schemas.LivroAtualizar, db: Session = 
     """Atualiza apenas os campos enviados."""
     livro = buscar_livro_ou_404(livro_id, db)
     mudancas = dados.model_dump(exclude_unset=True)
+        # NOVO: com empréstimo em andamento, a disponibilidade só muda pela devolução.
+    if "disponivel" in mudancas and emprestimo_ativo(livro_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail="Este livro tem um empréstimo em andamento. Registre a devolução.",
+        )
     if "isbn" in mudancas:
         verificar_isbn_duplicado(mudancas["isbn"], db, ignorar_id=livro_id)
     if "categoria" in mudancas:  # NOVO
@@ -117,6 +131,12 @@ def atualizar_livro(livro_id: int, dados: schemas.LivroAtualizar, db: Session = 
 def apagar_livro(livro_id: int, db: Session = Depends(get_db)):
     """Remove um livro (e a imagem da capa, se houver)."""
     livro = buscar_livro_ou_404(livro_id, db)
+        # NOVO: não se apaga livro que está com alguém.
+    if emprestimo_ativo(livro_id, db):
+        raise HTTPException(
+            status_code=409,
+            detail="Não é possível apagar: há um empréstimo em andamento.",
+        )
     storage.remover_capa(livro.capa)
     db.delete(livro)
     db.commit()
